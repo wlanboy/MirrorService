@@ -37,7 +37,8 @@ public class ProcessingTask extends TimerTask {
 		    if (deferredResult.isSetOrExpired()) {
 		    	logger.log(Level.WARNING, "Processing of non-blocking request #{} already expired");
 		    } else {
-		    	MultiValueMap<String, String> headers = new HttpHeaders(request.getHeaders());
+					HttpHeaders headers = new HttpHeaders();
+					headers.addAll(request.getHeaders());
 		    	headers.add(REQUESTCOUNTER, Integer.toString(counter));
 		    	
 		    	ResponseEntity<String> response = new ResponseEntity<String>(request.getBody(), headers, HttpStatus.resolve(statuscode));
