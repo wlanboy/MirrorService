@@ -12,7 +12,7 @@ mvn package -DskipTests=true
 -none-
 
 ### Windows
-java -jar target\MirrorService-0.0.1-SNAPSHOT.jar
+java -jar target\mirrorService-0.0.1-SNAPSHOT.jar
 
 ### Linux (service enabled)
 ./target/MirrorService-0.0.1-SNAPSHOT.jar start
