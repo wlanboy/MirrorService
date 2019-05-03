@@ -18,7 +18,7 @@ java -jar target\mirrorService-0.1.1-SNAPSHOT.jar
 ./target/MirrorService-0.1.1-SNAPSHOT.jar start
 
 ## Docker build
-docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/MirrorService-0.1.1-SNAPSHOT.jar
+docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorService-0.1.1-SNAPSHOT.jar
 
 ## Docker run
 export DOCKERHOST=192.168.0.100
