@@ -1,2 +1,12 @@
+spring:
+  application:
+    name: mirrorservice
+  cloud:
+    config:
+      failFast: false
+      discovery:
+        serviceId: serviceconfig
+        enabled: true
+
 server:
   port: ${PORT:8080}
