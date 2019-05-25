@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration>
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/base.xml"/>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+  <springProperty scope="context" name="APP_NAME" source="info.artifact"/>
+  <springProperty scope="context" name="APP_VERSION" source="info.version"/>
+
+  <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+    <destination>${LOGSTASH}</destination>
+    <keepAliveDuration>5 minutes</keepAliveDuration>
+    <reconnectionDelay>10 second</reconnectionDelay>
+    <waitStrategyType>sleeping</waitStrategyType>
+    <encoder charset="UTF-8" class="net.logstash.logback.encoder.LogstashEncoder">
+        <providers>
+            <mdc/> 
+            <context/> 
+            <logLevel/>
+            <loggerName/>
+
+            <pattern>
+                <pattern>
+                    {
+                    "appName": "${APP_NAME}",
+                    "appVersion": "${APP_VERSION}",
+                    "trace": "%X{X-B3-TraceId:-}",
+                    "span": "%X{X-B3-SpanId:-}",
+                    "parent": "%X{X-B3-ParentSpanId:-}",
+                    }
+                </pattern>
+            </pattern>
+
+            <threadName/>
+            <message/>
+
+            <logstashMarkers/> 
+            <arguments/> 
+
+            <stackTrace/>
+        </providers>
+    </encoder>    
+  </appender>
+  <root level="INFO">
+    <appender-ref ref="LOGSTASH" />
+    <appender-ref ref="CONSOLE" />
+  </root>
+</configuration>
