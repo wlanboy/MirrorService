@@ -4,9 +4,7 @@ spring:
   cloud:
     config:
       failFast: false
-      discovery:
-        serviceId: serviceconfig
-        enabled: true
+      uri: http://cloudconfig:8888
 
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8003}
