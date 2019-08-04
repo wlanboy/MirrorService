@@ -9,7 +9,7 @@ mvn package -DskipTests=true
 
 ## Run Service
 ### Environment variables
--none-
+export DOCKERHOST=192.168.0.100
 
 ### Windows
 java -jar target\mirrorservice-0.1.1-SNAPSHOT.jar
@@ -21,8 +21,7 @@ java -jar target\mirrorservice-0.1.1-SNAPSHOT.jar
 docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservice-0.1.1-SNAPSHOT.jar
 
 ## Docker run
-export DOCKERHOST=192.168.0.100
-docker run --name mirrorservice -m 256M -d -p 8080:8080 -v /tmp:/tmp -e DOCKERHOST=$DOCKERHOST -e EUREKA_ZONE=http://$DOCKERHOST:8761/eureka/ mirrorservice:latest
+docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp -e DOCKERHOST=$DOCKERHOST mirrorservice:latest
 
 ## Get your requests back
-http://localhost:8080/mirror
+http://localhost:8003/mirror
