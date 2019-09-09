@@ -9,9 +9,6 @@
 
   <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
     <destination>${LOGSTASH}</destination>
-    <keepAliveDuration>5 minutes</keepAliveDuration>
-    <reconnectionDelay>10 second</reconnectionDelay>
-    <waitStrategyType>sleeping</waitStrategyType>
     <encoder charset="UTF-8" class="net.logstash.logback.encoder.LogstashEncoder">
         <providers>
             <mdc/> 
