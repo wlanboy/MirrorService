@@ -21,7 +21,7 @@ pipeline {
       }
     }
     stage('Publish') {
-      when { params.PUBLISHIMAGE == true }
+      when { expression { params.PUBLISHIMAGE == true } }
       steps {
         withDockerRegistry([ credentialsId: "dockerhub", url: "" ]) {
           sh 'docker push wlanboy/mirrorservice:latest'
