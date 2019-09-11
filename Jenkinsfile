@@ -3,6 +3,9 @@ pipeline {
   options {
     buildDiscarder(logRotator(numToKeepStr: '1'))
   }
+  parameters {
+      booleanParam(defaultValue: false, description: 'Publish to DockerHub', name: 'PUBLISHIMAGE')
+  }
   environment {
     LOGSTASH = 'nuc:5044'
   }  
@@ -18,6 +21,7 @@ pipeline {
       }
     }
     stage('Publish') {
+      when { params.userFlag == true }
       steps {
         withDockerRegistry([ credentialsId: "dockerhub", url: "" ]) {
           sh 'docker push wlanboy/mirrorservice:latest'
