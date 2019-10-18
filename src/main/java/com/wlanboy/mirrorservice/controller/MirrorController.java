@@ -4,8 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.DeferredResult;
@@ -22,7 +21,7 @@ public class MirrorController {
      * @param name String
      * @return String template
      */
-    @RequestMapping(value = "/mirror", method = RequestMethod.POST)
+    @PostMapping(value = "/mirror")
     public DeferredResult<ResponseEntity<String>> mirror(HttpEntity<String> request, 
             @RequestParam(value = "statuscode", defaultValue = "200", required = false) Integer statuscode,
             @RequestParam(value = "wait", defaultValue = "0", required = false) Integer wait) {
