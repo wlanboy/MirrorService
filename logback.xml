@@ -6,9 +6,10 @@
 
   <springProperty scope="context" name="APP_NAME" source="spring.application.name"/>
   <springProperty scope="context" name="APP_VERSION" source="spring.application.version"/>
+  <variable name="LOGSTASHDESTINATION" value="${LOGSTASH:-nuc:5044}"/>
 
   <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-    <destination>${LOGSTASH}</destination>
+    <destination>${LOGSTASHDESTINATION}</destination>
     <encoder charset="UTF-8" class="net.logstash.logback.encoder.LogstashEncoder">
         <providers>
             <mdc/> 
