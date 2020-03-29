@@ -20,7 +20,7 @@
 		<java.version>11</java.version>
 		<spring-cloud.version>Hoxton.SR1</spring-cloud.version>
 		<dockerfile.version>1.4.10</dockerfile.version>
-        <docker.image.prefix>wlanboy</docker.image.prefix>	
+                <docker.image.prefix>wlanboy</docker.image.prefix>	
 	</properties>
 	
 	<dependencyManagement>
@@ -104,11 +104,10 @@
 				</executions>			
 			</plugin>
 
-			<plugin>
+			<!--<plugin>
 				<groupId>com.spotify</groupId>
 				<artifactId>dockerfile-maven-plugin</artifactId>
 				<version>${dockerfile.version}</version>
-				<!-- Wire up to the default build phases -->
 				<executions>
 				<execution>
 					<id>default</id>
@@ -125,14 +124,13 @@
 				</buildArgs>
 				</configuration>
 				<dependencies>
-				<!-- fix for JDK 9+ -->
 				<dependency>
 					<groupId>javax.activation</groupId>
 					<artifactId>javax.activation-api</artifactId>
 					<version>1.2.0</version>
 				</dependency>
 				</dependencies>
-			</plugin>			
+			</plugin>-->			
 		</plugins>
 	</build>
 
