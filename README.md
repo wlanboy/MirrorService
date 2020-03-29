@@ -1,3 +1,5 @@
+![Java CI with Maven](https://github.com/wlanboy/MirrorService/workflows/Java%20CI%20with%20Maven/badge.svg?branch=master)
+
 # MirrorService
 Spring Framework based Service which is mirroring requests
 
