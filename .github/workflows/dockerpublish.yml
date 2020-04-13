@@ -1,14 +1,14 @@
 name: Docker build and publish image
 on: 
-  watch:
-    types: [started]
+  push:
+    tags: 
+      - '*'
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Set up JDK 11
-      if: github.actor == github.event.repository.owner.login
       uses: actions/setup-java@v1
       with:
         java-version: 11
@@ -17,7 +17,6 @@ jobs:
       
     - uses: actions/checkout@master
     - name: Publish to Registry
-      if: github.actor == github.event.repository.owner.login
       uses: elgohr/Publish-Docker-Github-Action@master
       env:
          JAR_FILE: ./target/mirrorservice-0.1.1-SNAPSHOT.jar
