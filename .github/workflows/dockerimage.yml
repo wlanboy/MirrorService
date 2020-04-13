@@ -1,8 +1,5 @@
 name: Docker build and publish image
 on: 
-  create:
-    tags: 
-    - '*'
   watch:
     types: [started]
 jobs:
