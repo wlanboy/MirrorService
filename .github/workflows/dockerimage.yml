@@ -24,3 +24,4 @@ jobs:
         name: wlanboy/mirrorservice
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
+        tags: "latest"
