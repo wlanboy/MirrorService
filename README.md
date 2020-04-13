@@ -1,10 +1,10 @@
 ![Java CI with Maven](https://github.com/wlanboy/MirrorService/workflows/Java%20CI%20with%20Maven/badge.svg?branch=master)
 
 # MirrorService
-Spring Framework based Service which is mirroring requests
+Spring Framework based Service which is mirroring requests with the option to delay requests and alter http response codes
 
 ## Dependencies
-At least: Java 8 and Maven 3.5
+At least: Java 11 and Maven 3.5
 
 ## Build Service Logging
 mvn package -DskipTests=true
@@ -26,4 +26,6 @@ docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservi
 docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp -e DOCKERHOST=$DOCKERHOST mirrorservice:latest
 
 ## Get your requests back
-http://localhost:8003/mirror
+http://localhost:8003/mirror?statuscode=201&wait=10 
+
+returns http status code 201 and waits for 10 ms / mirrors body and headers
