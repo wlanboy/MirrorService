@@ -22,8 +22,15 @@ java -jar target\mirrorservice-0.1.1-SNAPSHOT.jar
 ## Docker build
 docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservice-0.1.1-SNAPSHOT.jar
 
+## Docker publish to github registry
+- docker tag mirrorservice:latest docker.pkg.github.com/wlanboy/mirrorservice/mirrorservice:latest
+- docker push docker.pkg.github.com/wlanboy/mirrorservice/mirrorservice:latest
+
+## Docker Registry repro
+- https://github.com/wlanboy/MirrorService/packages/278492
+
 ## Docker run
-docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp -e DOCKERHOST=$DOCKERHOST mirrorservice:latest
+- docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp -e DOCKERHOST=$DOCKERHOST mirrorservice:latest
 
 ## Get your requests back
 http://localhost:8003/mirror?statuscode=201&wait=10 
