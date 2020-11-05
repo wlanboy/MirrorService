@@ -22,7 +22,8 @@
 		<!--https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-dependencies-->
 		<spring-cloud.version>Hoxton.SR8</spring-cloud.version>
 		<dockerfile.version>1.4.10</dockerfile.version>
-        <docker.image.prefix>wlanboy</docker.image.prefix>	
+		<docker.image.prefix>wlanboy</docker.image.prefix>
+		<logstash-logback.version>6.3</logstash-logback.version>
 	</properties>
 	
 	<dependencyManagement>
@@ -58,7 +59,7 @@
         <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
-            <version>6.3</version>
+            <version>${logstash-logback.version}</version>
         </dependency>
 
         <dependency>
