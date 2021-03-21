@@ -11,7 +11,6 @@ mvn package -DskipTests=true
 
 ## Run Service
 ### Environment variables
-export DOCKERHOST=192.168.0.100
 
 ### Windows
 java -jar target\mirrorservice-0.1.1-SNAPSHOT.jar
@@ -30,7 +29,7 @@ docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservi
 - https://github.com/wlanboy/MirrorService/packages/278492
 
 ## Docker run
-- docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp -e DOCKERHOST=$DOCKERHOST mirrorservice:latest
+- docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp mirrorservice:latest
 
 ## Get your requests back
 http://localhost:8003/mirror?statuscode=201&wait=10 
