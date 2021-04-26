@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: mirrorservice
+  name: mirrorservice
+  namespace: mirror
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mirrorservice
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: mirrorservice
+    spec:
+      containers:
+      - image: wlanboy/mirrorservice
+        name: mirrorservice
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8003
+        resources: {}
+status: {}

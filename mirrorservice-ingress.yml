@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mirrorservice-ingress
+  namespace: mirror
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /mirrorservice(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: mirrorservice-service
+            port:
+              number: 8003
