@@ -31,6 +31,68 @@ docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservi
 ## Docker run
 - docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp mirrorservice:latest
 
+## Kubernets deployment
+
+### Prepare
+```
+cd ~
+git clone https://github.com/wlanboy/MirrorService.git
+```
+
+### check you local kubectl
+```
+kubectl cluster-info
+kubectl get pods --all-namespaces
+```
+
+### deploy service on new namespace
+```
+cd ~/MirrorService
+kubectl create namespace mirror
+kubectl apply -f mirrorservice-deployment.yaml
+kubectl apply -f mirrorservice-service.yaml
+kubectl get pods -n mirror -o wide
+```
+
+### check deployment and service
+```
+kubectl describe deployments -n mirror mirrorservice 
+kubectl describe services -n mirror mirrorservice-service
+```
+
+### expose service and get node port
+```
+kubectl expose deployment -n mirror mirrorservice --type=NodePort --name=mirrorservice-serviceexternal --port 8003
+kubectl describe services -n mirror mirrorservice-serviceexternal 
+```
+Result:
+```
+Name:                     mirrorservice-serviceexternal
+Namespace:                mirror
+Labels:                   app=mirrorservice
+Annotations:              <none>
+Selector:                 app=mirrorservice
+Type:                     NodePort
+IP Family Policy:         SingleStack
+IP Families:              IPv4
+IP:                       10.108.40.139
+IPs:                      10.108.40.139
+Port:                     <unset>  8003/TCP
+TargetPort:               8002/TCP
+NodePort:                 <unset>  30412/TCP  <--- THIS IS THE PORT WE NEED
+Endpoints:                10.10.0.7:8003
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+```
+
+###  call microservice
+* curl http://192.168.56.100:30412/actuator/health
+* Result
+```
+{"status":"UP","groups":["liveness","readiness"]}
+```
+
 ## Get your requests back
 http://localhost:8003/mirror?statuscode=201&wait=10 
 
