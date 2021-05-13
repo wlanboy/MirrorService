@@ -25,6 +25,9 @@ docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservi
 - docker tag mirrorservice:latest docker.pkg.github.com/wlanboy/mirrorservice/mirrorservice:latest
 - docker push docker.pkg.github.com/wlanboy/mirrorservice/mirrorservice:latest
 
+##Docker Hub
+- https://hub.docker.com/repository/docker/wlanboy/mirrorservice
+
 ## Docker Registry repro
 - https://github.com/wlanboy/MirrorService/packages/278492
 
