@@ -20,7 +20,7 @@
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<java.version>11</java.version>
 		<!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-dependencies -->
-		<spring-cloud.version>2020.0.0</spring-cloud.version>
+		<spring-cloud.version>2020.0.3</spring-cloud.version>
 		<!-- https://mvnrepository.com/artifact/net.logstash.logback/logstash-logback-encoder -->
 		<logstash-logback.version>6.6</logstash-logback.version>
 	</properties>
