@@ -13,13 +13,13 @@ mvn package -DskipTests=true
 ### Environment variables
 
 ### Windows
-java -jar target\mirrorservice-0.2.1-SNAPSHOT.jar
+java -jar target\mirrorservice-0.3.1-SNAPSHOT.jar
 
 ### Linux (service enabled)
-./target/mirrorservice-0.2.1-SNAPSHOT.jar start
+./target/mirrorservice-0.3.1-SNAPSHOT.jar start
 
 ## Docker build
-docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservice-0.2.1-SNAPSHOT.jar
+docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservice-0.3.1-SNAPSHOT.jar
 
 ## Docker publish to github registry
 - docker tag mirrorservice:latest docker.pkg.github.com/wlanboy/mirrorservice/mirrorservice:latest
