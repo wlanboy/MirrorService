@@ -9,6 +9,9 @@ At least: Java 11 and Maven 3.5
 ## Build Service Logging
 mvn package -DskipTests=true
 
+## Run with devtools
+mvn spring-boot:run
+
 ## Run Service
 ### Environment variables
 
