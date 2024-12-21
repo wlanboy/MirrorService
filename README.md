@@ -98,11 +98,12 @@ Events:                   <none>
 ```
 
 ## Get your requests back
-http://localhost:8003/mirror?statuscode=201&wait=10 
+http://localhost:8003/mirror?statuscode=201&wait=1000 (1000ms)
 
 returns http status code 201 and waits for 10 ms / mirrors body and headers
 
 ## sdk command
 ```
 sdk install java 21.0.5-tem
+sdk install maven 3.9.9
 ```
