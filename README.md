@@ -13,8 +13,6 @@ mvn package -DskipTests=true
 mvn spring-boot:run
 
 ## Run Service
-### Environment variables
-
 ### Windows
 java -jar target\mirrorservice-0.3.1-SNAPSHOT.jar
 
@@ -103,3 +101,8 @@ Events:                   <none>
 http://localhost:8003/mirror?statuscode=201&wait=10 
 
 returns http status code 201 and waits for 10 ms / mirrors body and headers
+
+## sdk command
+```
+sdk install java 21.0.5-tem
+```
