@@ -26,7 +26,7 @@ docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservi
 - docker tag mirrorservice:latest docker.pkg.github.com/wlanboy/mirrorservice/mirrorservice:latest
 - docker push docker.pkg.github.com/wlanboy/mirrorservice/mirrorservice:latest
 
-##Docker Hub
+## Docker Hub
 - https://hub.docker.com/r/wlanboy/mirrorservice
 
 ## Docker Registry repro
@@ -35,8 +35,27 @@ docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservi
 ## Docker run
 - docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp mirrorservice:latest
 
-## Kubernets deployment
+## Native build
+- curl -s "https://get.sdkman.io" | bash
+- sdk install java 21.0.5-tem
+- sdk install java 21.0.2-graalce
+- export GRAALVM_HOME=~/.sdkman/candidates/java/21.0.2-graalce
+- sudo apt-get install build-essential zlib1g-dev
+- mvn -Pnative spring-boot:build-image
+- take a coffee && do a walk && docker rm mirrorservice
+- docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp docker.io/library/mirrorservice:0.3.1-SNAPSHOT
 
+## Native publish
+- docker tag docker.io/library/mirrorservice:0.3.1-SNAPSHOT wlanboy/mirrorservice:latest
+- docker push wlanboy/mirrorservice:latest
+
+## Native executable
+- mvn -Pnative native:compile
+- ./target/mirrorservice
+- docker build -f Dockerfile.native -t mirrorservice:latest .
+- docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp mirrorservice:latest
+
+## Kubernets deployment
 ### Prepare
 ```
 cd ~
