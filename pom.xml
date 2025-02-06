@@ -6,7 +6,7 @@
 	    <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-parent -->
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.4.1</version>
+		<version>3.4.2</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.wlanboy</groupId>
@@ -19,23 +19,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<java.version>21</java.version>
-		<!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-dependencies -->
-		<spring-cloud.version>2024.0.0</spring-cloud.version>
-		<!-- https://mvnrepository.com/artifact/net.logstash.logback/logstash-logback-encoder -->
-		<logstash-logback.version>8.0</logstash-logback.version>
 	</properties>
-	
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.springframework.cloud</groupId>
-				<artifactId>spring-cloud-dependencies</artifactId>
-				<version>${spring-cloud.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>	
 
 	<dependencies>
 		<dependency>
@@ -45,16 +29,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-thymeleaf</artifactId>
-		</dependency>
-        <!--
-		<dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-config</artifactId>
-        </dependency>
-		-->
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-starter-bootstrap</artifactId>
 		</dependency>
 		<dependency>
             <groupId>org.springframework.boot</groupId>
@@ -68,27 +42,13 @@
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-registry-prometheus</artifactId>
 		</dependency>
-        <dependency>
-            <groupId>net.logstash.logback</groupId>
-            <artifactId>logstash-logback-encoder</artifactId>
-            <version>${logstash-logback.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.codehaus.janino</groupId>
-            <artifactId>janino</artifactId>
-        </dependency>
-
-		<dependency>
-			<groupId>org.glassfish.jaxb</groupId>
-			<artifactId>jaxb-runtime</artifactId>
-		</dependency>		
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
 		<dependency>
 		    <groupId>junit</groupId>
 		    <artifactId>junit</artifactId>
@@ -107,26 +67,28 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <embeddedLaunchScriptProperties>
-                        <mode>service</mode>
-                    </embeddedLaunchScriptProperties>
-                    <executable>true</executable>
-                </configuration>
 				<executions>
-				<execution>
-					<goals>
-					<goal>build-info</goal>
-					</goals>
-					<configuration>
-					<additionalProperties>
-						<encoding.source>UTF-8</encoding.source>
-						<encoding.reporting>UTF-8</encoding.reporting>
-					</additionalProperties>
-					</configuration>
-				</execution>
+					<execution>
+						<goals>
+						<goal>build-info</goal>
+						</goals>
+						<configuration>
+						<additionalProperties>
+							<encoding.source>UTF-8</encoding.source>
+							<encoding.reporting>UTF-8</encoding.reporting>
+						</additionalProperties>
+						</configuration>
+					</execution>
 				</executions>			
 			</plugin>
+
+            <plugin>
+                <groupId>org.graalvm.buildtools</groupId>
+                <artifactId>native-maven-plugin</artifactId>
+                <configuration>
+                    <skipNativeTests>true</skipNativeTests>
+                </configuration>
+            </plugin>
 		</plugins>
 	</build>
 
