@@ -1,0 +1,5 @@
+FROM scratch
+VOLUME /tmp
+ADD target/mirrorservice /mirrorservice
+EXPOSE 8003
+ENTRYPOINT ["/mirrorservice"]
