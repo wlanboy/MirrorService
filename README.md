@@ -55,6 +55,25 @@ docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservi
 - docker build -f Dockerfile.native -t mirrorservice:latest .
 - docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp mirrorservice:latest
 
+##  call microservice
+* curl http://localhost:8003/actuator/health
+* Result
+```
+{"status":"UP","groups":["liveness","readiness"]}
+```
+
+## Get your requests back with http status code 201 and a wait time of 1000 ms
+http://localhost:8003/mirror?statuscode=201&wait=1000 (1000ms)
+
+returns http status code 201 and waits for 10 ms / mirrors body and headers
+
+##  call microservice for dns resolve
+* curl http://localhost:8003/resolve/gmk.lan
+* Result
+```
+["192.168.100.101"]
+```
+
 ## Kubernets deployment
 ### Prepare
 ```
@@ -108,18 +127,6 @@ Session Affinity:         None
 External Traffic Policy:  Cluster
 Events:                   <none>
 ```
-
-###  call microservice
-* curl http://192.168.56.100:30412/actuator/health
-* Result
-```
-{"status":"UP","groups":["liveness","readiness"]}
-```
-
-## Get your requests back
-http://localhost:8003/mirror?statuscode=201&wait=1000 (1000ms)
-
-returns http status code 201 and waits for 10 ms / mirrors body and headers
 
 ## sdk command
 ```
