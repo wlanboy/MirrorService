@@ -1,0 +1,28 @@
+replicaCount: 1
+deploymentName: mirror
+namespace: mirror
+image:
+  repository: wlanboy/MirrorService
+  tag: latest
+  pullPolicy: IfNotPresent
+
+hosts: 
+  - mirror.tp.lan
+  - mirror.gmk.lan
+
+service:
+  port: 4500
+
+persistence:
+  enabled: true
+  size: 100Mi
+  storageClass: standard
+
+istio:
+  gateway: mirror-gateway
+  gatewayNamespace: "istio-ingress"
+
+certmanager:
+  issuer: local-ca-issuer
+  kind: ClusterIssuer
+  secretName: mirrorapi-tls

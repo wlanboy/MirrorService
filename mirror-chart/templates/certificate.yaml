@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certmanager.secretName }}
+  namespace: {{ .Values.istio.gatewayNamespace}}
+spec:
+  secretName: {{ .Values.certmanager.secretName }}
+  issuerRef:
+    name: {{ .Values.certmanager.issuer }}
+    kind: {{ .Values.certmanager.kind }}
+  dnsNames:
+  {{- range .Values.hosts }}
+    - {{ . }}
+  {{- end }}
+  privateKey:
+    rotationPolicy: Always

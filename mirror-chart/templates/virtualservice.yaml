@@ -1,0 +1,22 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ .Values.deploymentName }}-sv
+spec:
+  hosts:
+  {{- range .Values.hosts }}
+    - {{ . }}
+  {{- end }}
+  exportTo:
+  - "."
+  - istio-ingress
+  - istio-system
+  gateways:
+    - {{ .Values.istio.gateway }}
+    - mesh
+  http:
+    - route:
+        - destination:
+            host: {{ .Values.deploymentName }}
+            port:
+              number: {{ .Values.service.port }}
