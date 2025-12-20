@@ -19,7 +19,10 @@ spec:
           ports:
             - containerPort: {{ .Values.service.port }}
           volumeMounts:
-            - name: tmp
+            - name: config-volume
+              mountPath: /app/application.properties
+              subPath: application.properties
+            - name: tmp-volume
               mountPath: /tmp
           livenessProbe:
             httpGet:
@@ -27,7 +30,6 @@ spec:
               port: {{ .Values.service.port }}
             initialDelaySeconds: 10
             periodSeconds: 10
-
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
@@ -35,6 +37,8 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
       volumes:
-        - name: tmp
-          persistentVolumeClaim:
-            claimName: mirror-pvc
+        - name: config-volume
+          configMap:
+            name: {{ .Values.deploymentName }}-config
+        - name: tmp-volume
+          emptyDir: {}
