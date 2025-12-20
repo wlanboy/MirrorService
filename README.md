@@ -4,7 +4,7 @@
 Spring Framework based Service which is mirroring requests with the option to delay requests and alter http response codes
 
 ## Dependencies
-At least: Java 11 and Maven 3.5
+At least: Java 21 and Maven 3.5
 
 ## Build Service Logging
 mvn package -DskipTests=true
@@ -20,7 +20,7 @@ java -jar target\mirrorservice-0.3.1-SNAPSHOT.jar
 ./target/mirrorservice-0.3.1-SNAPSHOT.jar start
 
 ## Docker build
-docker build -t mirrorservice:latest . --build-arg JAR_FILE=./target/mirrorservice-0.3.1-SNAPSHOT.jar
+docker build -t mirrorservice:latest . 
 
 ## Docker publish to github registry
 - docker tag mirrorservice:latest docker.pkg.github.com/wlanboy/mirrorservice/mirrorservice:latest
