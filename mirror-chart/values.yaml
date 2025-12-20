@@ -11,7 +11,7 @@ hosts:
   - mirror.gmk.lan
 
 service:
-  port: 4500
+  port: 8003
 
 persistence:
   enabled: true
