@@ -2,7 +2,7 @@ replicaCount: 1
 deploymentName: mirror
 namespace: mirror
 image:
-  repository: wlanboy/MirrorService
+  repository: wlanboy/mirrorservice
   tag: latest
   pullPolicy: IfNotPresent
 
