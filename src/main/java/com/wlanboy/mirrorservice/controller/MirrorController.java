@@ -13,6 +13,7 @@ import org.springframework.web.context.request.async.DeferredResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 
 @RestController
 @RequestMapping("/mirror")
@@ -51,8 +52,7 @@ public class MirrorController {
 
     @Operation(summary = "Mirror Service", description = "Spiegelt den Request basierend auf den Instruktionen.", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", schema = @Schema(implementation = MirrorInstruction.class))))
     @RequestMapping(method = {RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE })
-    public DeferredResult<ResponseEntity<String>> mirror(
-            @ParameterObject MirrorInstruction instruction) {
+    public DeferredResult<ResponseEntity<String>> mirror(@RequestBody MirrorInstruction instruction) {
 
         DeferredResult<ResponseEntity<String>> deferredResult = new DeferredResult<>(instruction.waitMs() + 5000L);
 
