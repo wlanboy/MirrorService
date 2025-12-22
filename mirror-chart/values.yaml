@@ -4,7 +4,7 @@ namespace: mirror
 image:
   repository: wlanboy/mirrorservice
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 hosts: 
   - mirror.tp.lan
@@ -16,7 +16,7 @@ service:
 persistence:
   enabled: true
   size: 100Mi
-  storageClass: standard
+  storageClass: local-path
 
 istio:
   gateway: mirror-gateway
