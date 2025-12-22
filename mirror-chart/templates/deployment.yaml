@@ -20,11 +20,11 @@ spec:
             - containerPort: {{ .Values.service.port }}
           resources: 
             requests: 
-              cpu: "100m" 
+              cpu: "200m" 
               memory: "300Mi" 
             limits: 
-              cpu: "400m"
-              memory: "500Mi"
+              cpu: "1"
+              memory: "400Mi"
           volumeMounts:
             - name: config-volume
               mountPath: /app/application.properties
