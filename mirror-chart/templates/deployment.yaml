@@ -41,7 +41,7 @@ spec:
             httpGet:
               path: /actuator/health/readiness
               port: {{ .Values.service.port }}
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
       volumes:
         - name: config-volume
