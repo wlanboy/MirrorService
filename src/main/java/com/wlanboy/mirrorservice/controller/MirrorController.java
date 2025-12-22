@@ -24,8 +24,33 @@ public class MirrorController {
         this.taskExecutor = taskExecutor;
     }
 
+    @Operation(summary = "Mirror Service", description = "Spiegelt den Request basierend auf den Instruktionen.")
+    @RequestMapping(method = { RequestMethod.GET})
+    public DeferredResult<ResponseEntity<String>> mirrorGet(
+            @ParameterObject MirrorInstruction instruction) {
+
+        DeferredResult<ResponseEntity<String>> deferredResult = new DeferredResult<>(instruction.waitMs() + 5000L);
+
+        taskExecutor.execute(() -> {
+            try {
+                if (instruction.waitMs() > 0) {
+                    Thread.sleep(Math.min(instruction.waitMs(), 60000));
+                }
+
+                var response = ResponseEntity.status(instruction.statusCode());
+                instruction.responseHeaders().forEach(response::header);
+
+                deferredResult.setResult(response.body(instruction.responseBody()));
+            } catch (Exception e) {
+                deferredResult.setErrorResult(ResponseEntity.internalServerError().build());
+            }
+        });
+
+        return deferredResult;
+    }
+
     @Operation(summary = "Mirror Service", description = "Spiegelt den Request basierend auf den Instruktionen.", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", schema = @Schema(implementation = MirrorInstruction.class))))
-    @RequestMapping(method = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE })
+    @RequestMapping(method = {RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE })
     public DeferredResult<ResponseEntity<String>> mirror(
             @ParameterObject MirrorInstruction instruction) {
 
