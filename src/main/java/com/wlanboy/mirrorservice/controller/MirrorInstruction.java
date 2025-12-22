@@ -1,10 +1,13 @@
 package com.wlanboy.mirrorservice.controller;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+
 import java.util.Map;
 
 public record MirrorInstruction(
     @Schema(description = "HTTP Statuscode der Antwort", defaultValue = "200")
+    @NotNull
     int statusCode,
     @Schema(description = "Wartezeit in Millisekunden", defaultValue = "0")
     int waitMs,
