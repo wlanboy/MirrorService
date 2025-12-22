@@ -23,8 +23,8 @@ spec:
               cpu: "100m" 
               memory: "300Mi" 
             limits: 
-              cpu: "200m"
-              memory: "400Mi"
+              cpu: "300m"
+              memory: "500Mi"
           volumeMounts:
             - name: config-volume
               mountPath: /app/application.properties
