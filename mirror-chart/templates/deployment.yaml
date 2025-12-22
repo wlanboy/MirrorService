@@ -20,7 +20,7 @@ spec:
             - containerPort: {{ .Values.service.port }}
           resources: 
             requests: 
-              cpu: "200m" 
+              cpu: "300m" 
               memory: "300Mi" 
             limits: 
               cpu: "1"
@@ -36,13 +36,13 @@ spec:
               path: /actuator/health/liveness
               port: {{ .Values.service.port }}
             initialDelaySeconds: 10
-            periodSeconds: 10
+            periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
               port: {{ .Values.service.port }}
             initialDelaySeconds: 10
-            periodSeconds: 10
+            periodSeconds: 20
       volumes:
         - name: config-volume
           configMap:
