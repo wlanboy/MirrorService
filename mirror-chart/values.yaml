@@ -23,6 +23,7 @@ istio:
   gatewayNamespace: "istio-ingress"
 
 certmanager:
+  enabled: true
   issuer: local-ca-issuer
   kind: ClusterIssuer
   secretName: mirrorapi-tls
