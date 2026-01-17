@@ -20,7 +20,7 @@ spec:
             - containerPort: {{ .Values.service.port }}
           resources: 
             requests: 
-              cpu: "300m" 
+              cpu: "800m" 
               memory: "300Mi" 
             limits: 
               cpu: "1"
