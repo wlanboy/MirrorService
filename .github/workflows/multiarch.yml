@@ -8,16 +8,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up JDK 
-      uses: actions/setup-java@v4
-      with:
-        java-version: 21
-        distribution: 'temurin'
-        cache: maven  
-
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml -DskipTests=true
-
     # --- Multi-Arch Setup ---
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
