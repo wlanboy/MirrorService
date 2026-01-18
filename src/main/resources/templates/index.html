@@ -26,12 +26,26 @@
   .version {
     font-size: 1.5em;
   }
+  .swagger-link {
+    margin-top: 1.5em;
+  }
+  .swagger-link a {
+    color: #85ea2d;
+    text-decoration: none;
+    font-size: 1.2em;
+  }
+  .swagger-link a:hover {
+    text-decoration: underline;
+  }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="service-name" th:text="${serviceName}">serviceName</div>
   <div class="version" th:text="${serviceVersion}">serviceVersion</div>
+  <div class="swagger-link">
+    <a href="/swagger-ui/index.html">API Documentation</a>
+  </div>
 </div>
 </body>
 </html>
