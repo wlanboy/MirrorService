@@ -6,22 +6,30 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
 @RestController
+@Tag(name = "DNS Lookup", description = "DNS-Auflösungs-Endpunkte")
 public class DnsLookupController {
-    
-    /**
-     * Performs a local DNS resolution for the given hostname
-     * and returns the found IP addresses.
-     *
-     * @param hostname The hostname for which the DNS resolution should be performed.
-     * @return A ResponseEntity containing a list of IP addresses (as String) on success,
-     * or an error message on failure.
-     */
+
+    @Operation(
+        summary = "DNS-Auflösung durchführen",
+        description = "Führt eine lokale DNS-Auflösung für den angegebenen Hostnamen durch und gibt die gefundenen IP-Adressen zurück."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "DNS-Auflösung erfolgreich"),
+        @ApiResponse(responseCode = "404", description = "Hostname konnte nicht aufgelöst werden"),
+        @ApiResponse(responseCode = "403", description = "DNS-Auflösung wegen Sicherheitseinschränkungen verweigert"),
+        @ApiResponse(responseCode = "500", description = "Unerwarteter Fehler")
+    })
     @GetMapping("/resolve/{hostname}")
     public ResponseEntity<List<String>> resolveDns(@PathVariable String hostname) {
         List<String> ipAddresses = new ArrayList<>();
