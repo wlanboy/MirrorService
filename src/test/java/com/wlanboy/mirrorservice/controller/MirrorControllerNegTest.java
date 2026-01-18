@@ -87,18 +87,12 @@ class MirrorControllerNegTest {
     }
 
     // ---------------------------------------------------------
-    // 8 — DELETE ohne Body
+    // 8 — DELETE ohne Body → erwartet 400 Bad Request (fehlender RequestBody)
     // ---------------------------------------------------------
     @Test
     void testDeleteWithoutBody() throws Exception {
-
-        var result = mockMvc.perform(delete("/mirror"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        // Dein Controller validiert nicht → 200 OK ist korrekt
-        mockMvc.perform(asyncDispatch(result))
-                .andExpect(status().isOk());
+        mockMvc.perform(delete("/mirror"))
+                .andExpect(status().isBadRequest());
     }
 
     // ---------------------------------------------------------
