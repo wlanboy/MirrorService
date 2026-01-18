@@ -1,6 +1,6 @@
 package com.wlanboy.mirrorservice.controller;
 
-import java.lang.reflect.RecordComponent;
+import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -18,6 +18,17 @@ import jakarta.servlet.http.HttpServletRequest;
 public class MirrorInstructionResolver implements HandlerMethodArgumentResolver {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Constructor<MirrorInstruction> constructor;
+
+    public MirrorInstructionResolver() {
+        try {
+            this.constructor = MirrorInstruction.class.getConstructor(
+                int.class, int.class, String.class, Map.class
+            );
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException("MirrorInstruction constructor not found", e);
+        }
+    }
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
@@ -30,7 +41,7 @@ public class MirrorInstructionResolver implements HandlerMethodArgumentResolver 
 
         HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
 
-        // 1. JSON-Body Handling (unverändert)
+        // 1. JSON-Body Handling
         if (isJsonRequest(request)) {
             String body = request.getReader().lines().collect(Collectors.joining());
             if (!body.isBlank()) {
@@ -38,30 +49,19 @@ public class MirrorInstructionResolver implements HandlerMethodArgumentResolver 
             }
         }
 
-        // 2. Dynamisches Mapping für GET/Parameter
-        RecordComponent[] components = MirrorInstruction.class.getRecordComponents();
-        Object[] values = new Object[components.length];
+        // 2. Query-Parameter Mapping
+        int statusCode = parseIntSafe(webRequest.getParameter("statusCode"), 0);
+        int waitMs = parseIntSafe(webRequest.getParameter("waitMs"), 0);
+        String responseBody = webRequest.getParameter("responseBody");
+        Map<String, String> responseHeaders = extractMapFromParameters(webRequest, "responseHeaders");
 
-        for (int i = 0; i < components.length; i++) {
-            String name = components[i].getName();
-            Class<?> type = components[i].getType();
-
-            if (type == Map.class) {
-                values[i] = extractMapFromParameters(webRequest, name);
-            } else {
-                values[i] = convertValue(webRequest.getParameter(name), type);
-            }
-        }
-
-        return MirrorInstruction.class.getDeclaredConstructors()[0].newInstance(values);
+        return constructor.newInstance(statusCode, waitMs, responseBody, responseHeaders);
     }
 
     private Map<String, String> extractMapFromParameters(NativeWebRequest webRequest, String prefix) {
         Map<String, String> result = new HashMap<>();
-        // Gehe durch alle Parameter-Namen (z.B. "responseHeaders[Content-Type]")
         webRequest.getParameterNames().forEachRemaining(paramName -> {
             if (paramName.startsWith(prefix + "[") && paramName.endsWith("]")) {
-                // Extrahiere den Key zwischen den Klammern
                 String key = paramName.substring(prefix.length() + 1, paramName.length() - 1);
                 result.put(key, webRequest.getParameter(paramName));
             }
@@ -74,16 +74,14 @@ public class MirrorInstructionResolver implements HandlerMethodArgumentResolver 
         return ct != null && ct.contains("application/json");
     }
 
-    private Object convertValue(String value, Class<?> type) {
-        if (value == null) {
-            if (type == int.class)
-                return 0;
-            if (type == Map.class)
-                return Map.of();
-            return null;
+    private int parseIntSafe(String value, int defaultValue) {
+        if (value == null || value.isBlank()) {
+            return defaultValue;
         }
-        if (type == int.class)
+        try {
             return Integer.parseInt(value);
-        return value;
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
     }
 }
