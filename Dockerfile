@@ -17,8 +17,11 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
 COPY src ./src
 # → Jetzt erst der Sourcecode, damit Änderungen am Code nicht das Dependency-Layer invalidieren.
 
-RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests package
-# → Baut das eigentliche JAR.
+RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests compile spring-boot:process-aot package
+# → Baut das eigentliche JAR mit AOT (Ahead-of-Time) Processing.
+# → compile: Kompiliert die Klassen (notwendig für process-aot).
+# → spring-boot:process-aot: Generiert AOT-Metadaten basierend auf den kompilierten Klassen.
+# → package: Baut das finale JAR inkl. AOT-Klassen.
 # → Wieder mit Maven-Cache, um Build-Zeit zu sparen.
 
 RUN cp target/mirrorservice-0.3.1-SNAPSHOT.jar app.jar && \

@@ -19,6 +19,7 @@ set -e
 # -XX:+ExitOnOutOfMemoryError: JVM beendet bei OOM (Kubernetes kann neustarten)
 
 exec java \
+  -Dspring.aot.enabled=true \
   -Djava.security.egd=file:/dev/./urandom \
   -XX:MaxRAMPercentage=50 \
   -XX:InitialRAMPercentage=30 \
