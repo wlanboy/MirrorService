@@ -3,32 +3,17 @@ package com.wlanboy.mirrorservice.controller;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.concurrent.Executor;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(MirrorController.class)
-@Import(MirrorControllerTest.TestConfig.class)
 class MirrorControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @TestConfiguration
-    static class TestConfig {
-
-        @Bean
-        public Executor mirrorTaskExecutor() {
-            return Runnable::run;
-        }
-    }
 
     // ---------------------------------------------------------
     // GET
@@ -129,5 +114,63 @@ class MirrorControllerTest {
                 .andExpect(status().isNoContent())
                 .andExpect(header().string("X-Deleted", "true"))
                 .andExpect(content().string(""));
+    }
+
+    // ---------------------------------------------------------
+    // PATCH
+    // ---------------------------------------------------------
+    @Test
+    void testMirrorPatch() throws Exception {
+        String json = """
+            {
+              "statusCode": 200,
+              "responseBody": "PATCH-OK",
+              "waitMs": 0,
+              "responseHeaders": {
+                "X-Method": "PATCH"
+              }
+            }
+            """;
+
+        var result = mockMvc.perform(patch("/mirror")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Method", "PATCH"))
+                .andExpect(content().string("PATCH-OK"));
+    }
+
+    // ---------------------------------------------------------
+    // waitMs Delay
+    // ---------------------------------------------------------
+    @Test
+    void testMirrorWithDelay() throws Exception {
+        String json = """
+            {
+              "statusCode": 200,
+              "responseBody": "DELAYED",
+              "waitMs": 100,
+              "responseHeaders": {}
+            }
+            """;
+
+        long start = System.currentTimeMillis();
+
+        var result = mockMvc.perform(post("/mirror")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isOk())
+                .andExpect(content().string("DELAYED"));
+
+        long elapsed = System.currentTimeMillis() - start;
+        assert elapsed >= 100 : "Delay should be at least 100ms, was " + elapsed + "ms";
     }
 }

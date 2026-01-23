@@ -1,15 +1,13 @@
 package com.wlanboy.mirrorservice.controller;
 
-import java.util.concurrent.Executor;
+import java.time.Duration;
 
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.context.request.async.DeferredResult;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -18,17 +16,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/mirror")
 @Tag(name = "Mirror", description = "Mirror-Service-Endpunkte")
 public class MirrorController {
-
-    private final Executor taskExecutor;
-
-    public MirrorController(@Qualifier("mirrorTaskExecutor") Executor taskExecutor) {
-        this.taskExecutor = taskExecutor;
-    }
 
     @Operation(summary = "Mirror GET Request", description = "Spiegelt den GET-Request basierend auf den Query-Parametern.")
     @ApiResponses(value = {
@@ -36,8 +29,7 @@ public class MirrorController {
         @ApiResponse(responseCode = "500", description = "Interner Serverfehler")
     })
     @RequestMapping(method = {RequestMethod.GET})
-    public DeferredResult<ResponseEntity<String>> mirrorGet(
-            @ParameterObject MirrorInstruction instruction) {
+    public Mono<ResponseEntity<String>> mirrorGet(@ParameterObject MirrorInstruction instruction) {
         return executeMirror(instruction);
     }
 
@@ -53,31 +45,20 @@ public class MirrorController {
         @ApiResponse(responseCode = "500", description = "Interner Serverfehler")
     })
     @RequestMapping(method = {RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.PATCH})
-    public DeferredResult<ResponseEntity<String>> mirror(@Valid @RequestBody MirrorInstruction instruction) {
+    public Mono<ResponseEntity<String>> mirror(@Valid @RequestBody MirrorInstruction instruction) {
         return executeMirror(instruction);
     }
 
-    private DeferredResult<ResponseEntity<String>> executeMirror(MirrorInstruction instruction) {
-        DeferredResult<ResponseEntity<String>> deferredResult = new DeferredResult<>(instruction.waitMs() + 5000L);
-
-        taskExecutor.execute(() -> {
-            try {
-                if (instruction.waitMs() > 0) {
-                    Thread.sleep(Math.min(instruction.waitMs(), 60000));
-                }
-
-                var response = ResponseEntity.status(instruction.statusCode());
-                instruction.responseHeaders().forEach(response::header);
-
-                deferredResult.setResult(response.body(instruction.responseBody()));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                deferredResult.setErrorResult(ResponseEntity.internalServerError().build());
-            } catch (Exception e) {
-                deferredResult.setErrorResult(ResponseEntity.internalServerError().build());
-            }
+    private Mono<ResponseEntity<String>> executeMirror(MirrorInstruction instruction) {
+        Mono<ResponseEntity<String>> result = Mono.fromSupplier(() -> {
+            var response = ResponseEntity.status(instruction.statusCode());
+            instruction.responseHeaders().forEach(response::header);
+            return response.body(instruction.responseBody());
         });
 
-        return deferredResult;
+        if (instruction.waitMs() > 0) {
+            return Mono.delay(Duration.ofMillis(instruction.waitMs())).then(result);
+        }
+        return result;
     }
 }

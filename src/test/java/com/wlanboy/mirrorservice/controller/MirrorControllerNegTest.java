@@ -4,31 +4,17 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.concurrent.Executor;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(MirrorController.class)
-@Import(MirrorControllerNegTest.TestConfig.class)
 class MirrorControllerNegTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        public Executor mirrorTaskExecutor() {
-            return Runnable::run; // synchroner Executor
-        }
-    }
 
     // ---------------------------------------------------------
     // 3 — Negative waitMs
@@ -115,5 +101,115 @@ class MirrorControllerNegTest {
                 .andExpect(header().string("X-Test", "123"))
                 .andExpect(header().string("X-Mode", "GET"))
                 .andExpect(content().string("OK"));
+    }
+
+    // ---------------------------------------------------------
+    // 10 — Validierung: statusCode < 100
+    // ---------------------------------------------------------
+    @Test
+    void testStatusCodeTooLow() throws Exception {
+        mockMvc.perform(post("/mirror")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "statusCode": 99,
+                      "responseBody": "X",
+                      "waitMs": 0,
+                      "responseHeaders": {}
+                    }
+                    """))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ---------------------------------------------------------
+    // 11 — Validierung: statusCode > 599
+    // ---------------------------------------------------------
+    @Test
+    void testStatusCodeTooHigh() throws Exception {
+        mockMvc.perform(post("/mirror")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "statusCode": 600,
+                      "responseBody": "X",
+                      "waitMs": 0,
+                      "responseHeaders": {}
+                    }
+                    """))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ---------------------------------------------------------
+    // 12 — Validierung: waitMs > 60000
+    // ---------------------------------------------------------
+    @Test
+    void testWaitMsTooHigh() throws Exception {
+        mockMvc.perform(post("/mirror")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "statusCode": 200,
+                      "responseBody": "X",
+                      "waitMs": 60001,
+                      "responseHeaders": {}
+                    }
+                    """))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ---------------------------------------------------------
+    // 13 — statusCode=0 wird durch Record-Default auf 200 gesetzt
+    // (Jackson → Record-Konstruktor → dann Validierung)
+    // ---------------------------------------------------------
+    @Test
+    void testStatusCodeZeroBecomesDefault() throws Exception {
+        var result = mockMvc.perform(post("/mirror")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "statusCode": 0,
+                      "responseBody": "DEFAULT",
+                      "waitMs": 0,
+                      "responseHeaders": {}
+                    }
+                    """))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isOk())
+                .andExpect(content().string("DEFAULT"));
+    }
+
+    // ---------------------------------------------------------
+    // 14 — GET ohne Parameter → Validierungsfehler
+    // ---------------------------------------------------------
+    @Test
+    void testGetWithoutParams() throws Exception {
+        mockMvc.perform(get("/mirror"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ---------------------------------------------------------
+    // 15 — responseBody = null
+    // ---------------------------------------------------------
+    @Test
+    void testNullResponseBody() throws Exception {
+        var result = mockMvc.perform(post("/mirror")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "statusCode": 200,
+                      "responseBody": null,
+                      "waitMs": 0,
+                      "responseHeaders": {}
+                    }
+                    """))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
     }
 }
