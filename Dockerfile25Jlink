@@ -1,0 +1,114 @@
+# ============================
+# 1. Build Stage (Java 25)
+# ============================
+FROM registry.access.redhat.com/ubi9/openjdk-25:latest AS build
+WORKDIR /app
+
+# Maven Caching & Build (wie gehabt)
+COPY pom.xml .
+RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
+COPY src ./src
+RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests compile spring-boot:process-aot package
+
+# JAR extrahieren für Layering
+RUN cp target/mirrorservice-0.3.1-SNAPSHOT.jar app.jar && \
+    java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
+
+# ============================
+# 2. JRE Creation Stage (NEU)
+# ============================
+
+# WICHTIG: Umschalten auf root, um Pakete zu installieren
+USER root
+# Installiere die JMODS, die für jlink zwingend erforderlich sind. Red Hat trennt das, um Platz zu sparen.
+# Wenn jlink anweist, Debug-Symbole zu entfernen (--strip-debug), sucht das Tool im Hintergrund 
+# nach dem System-Befehl objcopy (ein Teil der binutils), was natürlich nicht als notwendig erachtet wurde.
+RUN microdnf install -y java-25-openjdk-jmods binutils && \
+    microdnf clean all
+
+# Wir analysieren die extrahierten Layer, um ein minimales JRE zu bauen
+RUN jdeps \
+    --ignore-missing-deps \
+    --print-module-deps \
+    --multi-release 25 \
+    --recursive \
+    --class-path "extracted/dependencies/*:extracted/snapshot-dependencies/*" \
+    extracted/application/BOOT-INF/classes > modules.txt
+
+# Erzeuge das Custom JRE
+# --compress zip-9 ist der moderne Ersatz für --compress=2
+# NoClassDefFoundError: java.beans.PropertyEditorSupport -> java.desktop
+# jmx, metrics -> java.management
+# load jar files (swagger) -> jdk.zipfs
+# needs jlink -> java.instrument
+# jpa needs java.sql.Date -> java.sql
+# jetty jndi config -> java.naming
+# jdk25 warnings -> sun.misc.Unsafe, das von Objenesis/CGLIB -> jdk.unsupported
+RUN $JAVA_HOME/bin/jlink \
+    --add-modules $(cat modules.txt),jdk.crypto.ec,jdk.charsets,java.desktop,java.management,jdk.zipfs,java.instrument,java.sql,java.naming,jdk.unsupported \
+    --strip-debug \
+    --no-man-pages \
+    --no-header-files \
+    --compress zip-9 \
+    --output /custom-jre
+
+# Erzeuge die Klassenliste für AppCDS
+RUN /custom-jre/bin/java -Djarmode=tools -jar app.jar extract --layers --destination cds-extraction
+
+# Erzeugt das Basis-Archiv für das Custom JRE
+RUN /custom-jre/bin/java -Xshare:dump
+
+# CDS Archiv generieren
+# 1. Liste der Klassen erstellen (Training)
+# WICHTIG: Wir nutzen /custom-jre/bin/java, damit das Archiv zum JRE passt!
+# spring.context.exit weist Spring Boot an, den Application Context aufzubauen (damit alle Klassen geladen werden), 
+# aber die App sofort danach sauber zu beenden
+# Training gegen die entpackten Layer (muss identisch zum Start sein!)
+RUN /custom-jre/bin/java -XX:ArchiveClassesAtExit=app.jsa \
+         -Dspring.context.exit=onRefresh \
+         -Dspring.aot.enabled=true \
+         -cp "extracted/dependencies/*:extracted/snapshot-dependencies/*:extracted/application/" \
+         org.springframework.boot.loader.launch.JarLauncher || [ -f app.jsa ]
+# Hinweis: Das "|| true" ist wichtig, da die App beim Training mangels DB/Config evtl. abbricht, 
+# aber das Archiv trotzdem schreibt.
+
+# ============================
+# 3. Runtime Stage (Minimales OS)
+# ============================
+# Wir nutzen hier ubi9-minimal statt der vollen Java-Runtime
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+
+LABEL org.opencontainers.image.title="Java http client with Custom JRE" \
+      org.opencontainers.image.version="0.0.1-SNAPSHOT"
+
+WORKDIR /app
+
+# Kopiere das Custom JRE aus der Build-Stage
+COPY --from=build /custom-jre /opt/jre
+ENV PATH="/opt/jre/bin:$PATH"
+
+# User-Setup (UBI-Minimal braucht oft manuelles ID-Handling)
+# curl-minial for healthcheck
+RUN microdnf install -y shadow-utils curl-minimal && \
+    groupadd -r appgroup -g 185 && \
+    useradd -r -u 185 -g appgroup -d /app -s /sbin/nologin appuser && \
+    mkdir -p /app/config /app/data && \
+    chown -R 185:185 /app && \
+    microdnf clean all
+
+USER 185
+
+# Layer kopieren (wie gehabt)
+COPY --from=build --chown=185:185 /app/extracted/dependencies/ ./
+COPY --from=build --chown=185:185 /app/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=185:185 /app/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=185:185 /app/extracted/application/ ./
+COPY --from=build --chown=185:185 /app/app.jsa /app/app.jsa
+COPY --chown=185:185 containerconfig/application.properties /app/config/application.properties
+COPY --chown=185:185 entrypoint.sh /app/entrypoint.sh
+
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["/app/entrypoint.sh"]

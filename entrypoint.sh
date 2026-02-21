@@ -5,6 +5,10 @@
 set -e
 # Beendet das Skript sofort, wenn ein Befehl einen Fehler zurückgibt.
 
+# Erlaubt das Hinzufügen von Optionen über eine Umgebungsvariable,
+# ohne den Entrypoint im Image ändern zu müssen.
+: "${JAVA_OPTS:=}"
+
 # Wir nutzen exec, damit Java die PID 1 übernimmt.
 # Dies ist wichtig für das Signal-Handling (z.B. in Kubernetes).
 # exec ersetzt den aktuellen Shell-Prozess durch den Java-Prozess.
@@ -19,6 +23,8 @@ set -e
 # -XX:+ExitOnOutOfMemoryError: JVM beendet bei OOM (Kubernetes kann neustarten)
 
 exec java \
+  $JAVA_OPTS \
+  -XX:SharedArchiveFile=/app/app.jsa \
   -Dspring.aot.enabled=true \
   -Djava.security.egd=file:/dev/./urandom \
   -XX:MaxRAMPercentage=50 \
