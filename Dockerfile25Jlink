@@ -36,20 +36,29 @@ RUN jdeps \
     extracted/application/BOOT-INF/classes > modules.txt
 
 # Erzeuge das Custom JRE
-# --compress zip-9 ist der moderne Ersatz für --compress=2
+# strip-debug -> keine Local Variable Tables, Line Number Tables, Native Debug Symbols
+# strip-native-commands -> kein keytool, rmiregistry, jdb, jhsdb, serialver - breaker!
+# compress zip-9 ist der moderne Ersatz für --compress=2
 # NoClassDefFoundError: java.beans.PropertyEditorSupport -> java.desktop
 # jmx, metrics -> java.management
+# GC notifications will not be available -> jdk.management
 # load jar files (swagger) -> jdk.zipfs
 # needs jlink -> java.instrument
 # jpa needs java.sql.Date -> java.sql
 # jetty jndi config -> java.naming
 # jdk25 warnings -> sun.misc.Unsafe, das von Objenesis/CGLIB -> jdk.unsupported
+# org.ietf.jgss.GSSException -> java.security.jgss, java.security.sasl
+# Generational ZGC (Z Garbage Collector) setzen
+# ExitOnOutOfMemoryError OOM killt den Thread und die JVM beenden.
+# UTF-8 only String handling
 RUN $JAVA_HOME/bin/jlink \
-    --add-modules $(cat modules.txt),jdk.crypto.ec,jdk.charsets,java.desktop,java.management,jdk.zipfs,java.instrument,java.sql,java.naming,jdk.unsupported \
+    --module-path /usr/lib/jvm/java-25/jmods \
+    --add-modules java.base,$(cat modules.txt),jdk.crypto.ec,jdk.charsets,java.desktop,java.management,jdk.management,jdk.zipfs,java.instrument,java.sql,java.naming,jdk.unsupported,java.security.jgss,java.security.sasl \
     --strip-debug \
     --no-man-pages \
     --no-header-files \
     --compress zip-9 \
+    --add-options "-XX:+UseZGC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8" \    
     --output /custom-jre
 
 # Erzeuge die Klassenliste für AppCDS
@@ -76,9 +85,10 @@ RUN /custom-jre/bin/java -XX:ArchiveClassesAtExit=app.jsa \
 # 3. Runtime Stage (Minimales OS)
 # ============================
 # Wir nutzen hier ubi9-minimal statt der vollen Java-Runtime
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+#FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM gcr.io/distroless/cc
 
-LABEL org.opencontainers.image.title="Java http client with Custom JRE" \
+LABEL org.opencontainers.image.title="Java mirrorservice with Custom JRE" \
       org.opencontainers.image.version="0.0.1-SNAPSHOT"
 
 WORKDIR /app
@@ -87,28 +97,28 @@ WORKDIR /app
 COPY --from=build /custom-jre /opt/jre
 ENV PATH="/opt/jre/bin:$PATH"
 
-# User-Setup (UBI-Minimal braucht oft manuelles ID-Handling)
-# curl-minial for healthcheck
-RUN microdnf install -y shadow-utils curl-minimal && \
-    groupadd -r appgroup -g 185 && \
-    useradd -r -u 185 -g appgroup -d /app -s /sbin/nologin appuser && \
-    mkdir -p /app/config /app/data && \
-    chown -R 185:185 /app && \
-    microdnf clean all
-
-USER 185
+USER nonroot
 
 # Layer kopieren (wie gehabt)
-COPY --from=build --chown=185:185 /app/extracted/dependencies/ ./
-COPY --from=build --chown=185:185 /app/extracted/spring-boot-loader/ ./
-COPY --from=build --chown=185:185 /app/extracted/snapshot-dependencies/ ./
-COPY --from=build --chown=185:185 /app/extracted/application/ ./
-COPY --from=build --chown=185:185 /app/app.jsa /app/app.jsa
-COPY --chown=185:185 containerconfig/application.properties /app/config/application.properties
-COPY --chown=185:185 entrypoint.sh /app/entrypoint.sh
+COPY --from=build --chown=65532:65532 /app/extracted/dependencies/ ./
+COPY --from=build --chown=65532:65532 /app/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=65532:65532 /app/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=65532:65532 /app/extracted/application/ ./
+COPY --from=build --chown=65532:65532 /app/app.jsa /app/app.jsa
+COPY --chown=65532:65532 containerconfig/application.properties /app/config/application.properties
 
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+#ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT [ \
+    "/opt/jre/bin/java", \
+    "-XX:SharedArchiveFile=/app/app.jsa", \
+    "-Dspring.aot.enabled=true", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-XX:MaxRAMPercentage=80", \
+    "-XX:InitialRAMPercentage=40", \
+    "-XX:+UseZGC", \
+    "-XX:+ExitOnOutOfMemoryError", \
+    "org.springframework.boot.loader.launch.JarLauncher", \
+    "--spring.config.location=file:/app/config/application.properties" \
+]

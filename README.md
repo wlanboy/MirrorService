@@ -39,14 +39,19 @@ docker build -f Dockerfile25Jlink -t mirrorservice:jlink .
 
 docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "mirrorservice"
 mirrorservice   jre       479MB
-mirrorservice   jlink     227MB
+mirrorservice   jlink     144MB
 ```
 
 ## Docker run
 
 ```bash
 docker run --rm --name mirrorservice -m 256M -p 8003:8080 -v /tmp:/tmp mirrorservice:latest
+Completed initialization in 2 ms
+Started MirrorserviceApplication in 2.154 seconds (process running for 2.891)
+
 docker run --rm --name mirrorservice -m 256M -p 8003:8080 -v /tmp:/tmp mirrorservice:jlink
+Completed initialization in 2 ms
+Started MirrorserviceApplication in 1.546 seconds (process running for 1.906)
 ```
 
 ## Docker Hub
