@@ -27,11 +27,12 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests compile spring-boot:p
 RUN cp target/mirrorservice-0.3.1-SNAPSHOT.jar app.jar && \
     java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 # → Spring Boot 4.x Layertools: --launcher ist erforderlich um den Loader zu extrahieren
-# → Extrahierte Layer:
-#     - dependencies (BOOT-INF/lib)
-#     - spring-boot-loader (org/springframework/boot/loader/*)
+# → Extrahierte Layer gemäß src/main/resources/layers.xml:
+#     - dependencies            (Spring, Jetty, Thymeleaf, Reactor …)
+#     - observability-dependencies (Micrometer, Prometheus, SpringDoc)
+#     - spring-boot-loader      (org/springframework/boot/loader/*)
 #     - snapshot-dependencies
-#     - application (BOOT-INF/classes)
+#     - application             (BOOT-INF/classes + AOT-Metadaten)
 # → Vorteil: Docker kann diese Layer getrennt cachen → schnellere Deployments.
 
 # ============================
@@ -64,16 +65,23 @@ USER 185
 # → Zurück zum nicht-privilegierten User.
 
 COPY --from=build --chown=185:185 /app/extracted/dependencies/ ./
-# → Kopiert nur die Dependency-Layer. Ändern sich selten.
+# → Stabile Release-Bibliotheken (Spring, Jetty, Thymeleaf, Reactor …). Ändern sich selten.
+
+COPY --from=build --chown=185:185 /app/extracted/observability-dependencies/ ./
+# → Micrometer, Prometheus-Client, SpringDoc/OpenAPI. Eigener Release-Zyklus.
 
 COPY --from=build --chown=185:185 /app/extracted/spring-boot-loader/ ./
-# → Enthält den Spring Boot Launcher (Main-Class Loader). Ändern sich selten.
+# → Spring Boot Launcher. Ändert sich nur bei Spring-Boot-Version-Upgrade.
 
 COPY --from=build --chown=185:185 /app/extracted/snapshot-dependencies/ ./
 # → Snapshot-Dependencies (z. B. lokale libs), ändern sich häufiger.
 
+COPY --from=build --chown=185:185 /app/extracted/application-resources/ ./
+# → Konfigurationsdateien (yml, properties) und Thymeleaf-Templates.
+# → Getrennt vom Kompilat: Konfigurationsänderungen invalidieren nicht den Class-Layer.
+
 COPY --from=build --chown=185:185 /app/extracted/application/ ./
-# → Der eigentliche Applikationscode (Kompilat). Ändert sich.
+# → Kompilierter App-Code + AOT-Metadaten. Ändert sich am häufigsten.
 
 COPY --chown=185:185 containerconfig/application.properties /app/config/application.properties
 # → Externe Konfiguration ins Config-Verzeichnis für die Referenz für ENV Vars

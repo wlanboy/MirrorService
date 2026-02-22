@@ -98,6 +98,12 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<layers>
+						<enabled>true</enabled>
+						<configuration>${project.basedir}/src/main/resources/layers.xml</configuration>
+					</layers>
+				</configuration>
 				<executions>
 					<execution>
 						<goals>
@@ -110,7 +116,7 @@
 						</additionalProperties>
 						</configuration>
 					</execution>
-				</executions>			
+				</executions>
 			</plugin>
 
             <plugin>

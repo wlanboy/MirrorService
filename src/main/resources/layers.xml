@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<layers xmlns="http://www.springframework.org/schema/boot/layers"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.springframework.org/schema/boot/layers
+                            https://www.springframework.org/schema/boot/layers/layers-3.0.xsd">
+    <application>
+        <!-- Spring Boot Launcher separat – ändert sich nur bei Spring Boot Version-Update -->
+        <into layer="spring-boot-loader">
+            <include>org/springframework/boot/loader/**</include>
+        </into>
+        <!-- Ressourcen und Templates getrennt vom Kompilat –
+             Konfigurationsänderungen und Template-Anpassungen invalidieren nicht den Class-Layer -->
+        <into layer="application-resources">
+            <include>BOOT-INF/classes/**/*.yml</include>
+            <include>BOOT-INF/classes/**/*.yaml</include>
+            <include>BOOT-INF/classes/**/*.properties</include>
+            <include>BOOT-INF/classes/**/*.xml</include>
+            <include>BOOT-INF/classes/templates/**</include>
+        </into>
+        <!-- Kompilierter Anwendungscode + AOT-Metadaten – ändert sich am häufigsten -->
+        <into layer="application" />
+    </application>
+    <dependencies>
+        <!-- SNAPSHOT-Dependencies getrennt (zukunftssicher) -->
+        <into layer="snapshot-dependencies">
+            <include>*:*:*SNAPSHOT</include>
+        </into>
+        <!-- Observability-Stack: eigener Release-Zyklus, unabhängig von Spring-Core.
+             Micrometer (Tracing + Prometheus), OpenTelemetry (transitiv), SpringDoc/OpenAPI -->
+        <into layer="observability-dependencies">
+            <include>io.micrometer:*</include>
+            <include>io.prometheus:*</include>
+            <include>org.springdoc:*</include>
+            <include>io.opentelemetry:*</include>
+        </into>
+        <!-- Alle stabilen Release-Bibliotheken (Spring, Jetty, Thymeleaf, Reactor …) -->
+        <into layer="dependencies" />
+    </dependencies>
+    <!-- Reihenfolge: stabilste Layer zuerst → bestes Docker-Cache-Verhalten -->
+    <layerOrder>
+        <layer>dependencies</layer>
+        <layer>observability-dependencies</layer>
+        <layer>spring-boot-loader</layer>
+        <layer>snapshot-dependencies</layer>
+        <layer>application-resources</layer>
+        <layer>application</layer>
+    </layerOrder>
+</layers>
