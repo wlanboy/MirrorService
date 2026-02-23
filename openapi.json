@@ -1,0 +1,973 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "OpenAPI definition",
+        "version": "v0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8003",
+            "description": "Generated server url"
+        }
+    ],
+    "tags": [
+        {
+            "name": "Home",
+            "description": "Liefert die Startseite des MirrorService mit Servicename und Versionsinformationen aus den Build-Properties."
+        },
+        {
+            "name": "DNS Lookup",
+            "description": "Führt DNS-Auflösungen und Erreichbarkeitstests für Hostnamen durch."
+        },
+        {
+            "name": "Mirror",
+            "description": "Gibt HTTP-Antworten mit konfigurierbarem Statuscode, Headers, Body und optionaler Verzögerung zurück. Nützlich für Tests von Timeouts, Fehlerverhalten und Header-Verarbeitung."
+        }
+    ],
+    "paths": {
+        "/mirror": {
+            "get": {
+                "tags": [
+                    "Mirror"
+                ],
+                "summary": "Mirror GET/HEAD Request",
+                "description": "Spiegelt den GET/HEAD-Request basierend auf den Query-Parametern.",
+                "operationId": "mirrorGet",
+                "parameters": [
+                    {
+                        "name": "statusCode",
+                        "in": "query",
+                        "description": "HTTP Statuscode der Antwort",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 200,
+                            "description": "HTTP Statuscode der Antwort",
+                            "maximum": 599,
+                            "minimum": 100
+                        }
+                    },
+                    {
+                        "name": "waitMs",
+                        "in": "query",
+                        "description": "Wartezeit in Millisekunden",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 0,
+                            "description": "Wartezeit in Millisekunden",
+                            "maximum": 60000,
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "responseBody",
+                        "in": "query",
+                        "description": "Inhalt der Antwort",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "description": "Inhalt der Antwort",
+                            "example": "Hello World"
+                        },
+                        "example": "Hello World"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Erfolgreiche Antwort mit konfiguriertem Body",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Einfache Antwort": {
+                                        "description": "Einfache Antwort",
+                                        "value": "OK"
+                                    },
+                                    "JSON-Body": {
+                                        "description": "JSON-Body",
+                                        "value": {
+                                            "status": "healthy"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "4XX": {
+                        "description": "Konfigurierter Client-Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Not Found (404)": {
+                                        "summary": "statusCode=404",
+                                        "description": "Not Found (404)",
+                                        "value": "Resource not found"
+                                    },
+                                    "Too Many Requests (429)": {
+                                        "summary": "statusCode=429",
+                                        "description": "Too Many Requests (429)",
+                                        "value": "Rate limit exceeded"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "5XX": {
+                        "description": "Konfigurierter Server-Fehler oder interner Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Service Unavailable (503)": {
+                                        "summary": "statusCode=503, waitMs=5000",
+                                        "description": "Service Unavailable (503)",
+                                        "value": "Service temporarily unavailable"
+                                    },
+                                    "Gateway Timeout (504)": {
+                                        "summary": "statusCode=504, waitMs=30000",
+                                        "description": "Gateway Timeout (504)",
+                                        "value": "Upstream timeout"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Mirror"
+                ],
+                "summary": "Mirror Request",
+                "description": "Spiegelt den Request basierend auf den Instruktionen im JSON-Body.",
+                "operationId": "mirror_1",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MirrorInstruction"
+                            },
+                            "examples": {
+                                "Erfolg mit Body": {
+                                    "summary": "200 OK mit JSON-Body",
+                                    "description": "Erfolg mit Body",
+                                    "value": {
+                                        "statusCode": 200,
+                                        "waitMs": 0,
+                                        "responseBody": "{\"result\": \"ok\"}",
+                                        "responseHeaders": {
+                                            "Content-Type": "application/json"
+                                        }
+                                    }
+                                },
+                                "Simulierter Fehler": {
+                                    "summary": "503 mit Verzögerung",
+                                    "description": "Simulierter Fehler",
+                                    "value": {
+                                        "statusCode": 503,
+                                        "waitMs": 3000,
+                                        "responseBody": "Service unavailable",
+                                        "responseHeaders": {
+                                            "Retry-After": "30"
+                                        }
+                                    }
+                                },
+                                "Timeout-Test": {
+                                    "summary": "200 mit 10s Verzögerung",
+                                    "description": "Timeout-Test",
+                                    "value": {
+                                        "statusCode": 200,
+                                        "waitMs": 10000,
+                                        "responseBody": "Delayed response",
+                                        "responseHeaders": {}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Erfolgreiche Antwort mit konfiguriertem Body",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Einfache Antwort": {
+                                        "description": "Einfache Antwort",
+                                        "value": "OK"
+                                    },
+                                    "JSON-Body": {
+                                        "description": "JSON-Body",
+                                        "value": {
+                                            "result": "ok"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "4XX": {
+                        "description": "Konfigurierter Client-Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Bad Request (400)": {
+                                        "summary": "statusCode=400",
+                                        "description": "Bad Request (400)",
+                                        "value": "Invalid input"
+                                    },
+                                    "Unauthorized (401)": {
+                                        "summary": "statusCode=401",
+                                        "description": "Unauthorized (401)",
+                                        "value": "Authentication required"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "5XX": {
+                        "description": "Konfigurierter Server-Fehler oder interner Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Internal Server Error (500)": {
+                                        "summary": "statusCode=500",
+                                        "description": "Internal Server Error (500)",
+                                        "value": "Unexpected error"
+                                    },
+                                    "Service Unavailable (503)": {
+                                        "summary": "statusCode=503, waitMs=3000",
+                                        "description": "Service Unavailable (503)",
+                                        "value": "Service temporarily unavailable"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Mirror"
+                ],
+                "summary": "Mirror Request",
+                "description": "Spiegelt den Request basierend auf den Instruktionen im JSON-Body.",
+                "operationId": "mirror",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MirrorInstruction"
+                            },
+                            "examples": {
+                                "Erfolg mit Body": {
+                                    "summary": "200 OK mit JSON-Body",
+                                    "description": "Erfolg mit Body",
+                                    "value": {
+                                        "statusCode": 200,
+                                        "waitMs": 0,
+                                        "responseBody": "{\"result\": \"ok\"}",
+                                        "responseHeaders": {
+                                            "Content-Type": "application/json"
+                                        }
+                                    }
+                                },
+                                "Simulierter Fehler": {
+                                    "summary": "503 mit Verzögerung",
+                                    "description": "Simulierter Fehler",
+                                    "value": {
+                                        "statusCode": 503,
+                                        "waitMs": 3000,
+                                        "responseBody": "Service unavailable",
+                                        "responseHeaders": {
+                                            "Retry-After": "30"
+                                        }
+                                    }
+                                },
+                                "Timeout-Test": {
+                                    "summary": "200 mit 10s Verzögerung",
+                                    "description": "Timeout-Test",
+                                    "value": {
+                                        "statusCode": 200,
+                                        "waitMs": 10000,
+                                        "responseBody": "Delayed response",
+                                        "responseHeaders": {}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Erfolgreiche Antwort mit konfiguriertem Body",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Einfache Antwort": {
+                                        "description": "Einfache Antwort",
+                                        "value": "OK"
+                                    },
+                                    "JSON-Body": {
+                                        "description": "JSON-Body",
+                                        "value": {
+                                            "result": "ok"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "4XX": {
+                        "description": "Konfigurierter Client-Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Bad Request (400)": {
+                                        "summary": "statusCode=400",
+                                        "description": "Bad Request (400)",
+                                        "value": "Invalid input"
+                                    },
+                                    "Unauthorized (401)": {
+                                        "summary": "statusCode=401",
+                                        "description": "Unauthorized (401)",
+                                        "value": "Authentication required"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "5XX": {
+                        "description": "Konfigurierter Server-Fehler oder interner Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Internal Server Error (500)": {
+                                        "summary": "statusCode=500",
+                                        "description": "Internal Server Error (500)",
+                                        "value": "Unexpected error"
+                                    },
+                                    "Service Unavailable (503)": {
+                                        "summary": "statusCode=503, waitMs=3000",
+                                        "description": "Service Unavailable (503)",
+                                        "value": "Service temporarily unavailable"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Mirror"
+                ],
+                "summary": "Mirror Request",
+                "description": "Spiegelt den Request basierend auf den Instruktionen im JSON-Body.",
+                "operationId": "mirror_2",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MirrorInstruction"
+                            },
+                            "examples": {
+                                "Erfolg mit Body": {
+                                    "summary": "200 OK mit JSON-Body",
+                                    "description": "Erfolg mit Body",
+                                    "value": {
+                                        "statusCode": 200,
+                                        "waitMs": 0,
+                                        "responseBody": "{\"result\": \"ok\"}",
+                                        "responseHeaders": {
+                                            "Content-Type": "application/json"
+                                        }
+                                    }
+                                },
+                                "Simulierter Fehler": {
+                                    "summary": "503 mit Verzögerung",
+                                    "description": "Simulierter Fehler",
+                                    "value": {
+                                        "statusCode": 503,
+                                        "waitMs": 3000,
+                                        "responseBody": "Service unavailable",
+                                        "responseHeaders": {
+                                            "Retry-After": "30"
+                                        }
+                                    }
+                                },
+                                "Timeout-Test": {
+                                    "summary": "200 mit 10s Verzögerung",
+                                    "description": "Timeout-Test",
+                                    "value": {
+                                        "statusCode": 200,
+                                        "waitMs": 10000,
+                                        "responseBody": "Delayed response",
+                                        "responseHeaders": {}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Erfolgreiche Antwort mit konfiguriertem Body",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Einfache Antwort": {
+                                        "description": "Einfache Antwort",
+                                        "value": "OK"
+                                    },
+                                    "JSON-Body": {
+                                        "description": "JSON-Body",
+                                        "value": {
+                                            "result": "ok"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "4XX": {
+                        "description": "Konfigurierter Client-Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Bad Request (400)": {
+                                        "summary": "statusCode=400",
+                                        "description": "Bad Request (400)",
+                                        "value": "Invalid input"
+                                    },
+                                    "Unauthorized (401)": {
+                                        "summary": "statusCode=401",
+                                        "description": "Unauthorized (401)",
+                                        "value": "Authentication required"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "5XX": {
+                        "description": "Konfigurierter Server-Fehler oder interner Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Internal Server Error (500)": {
+                                        "summary": "statusCode=500",
+                                        "description": "Internal Server Error (500)",
+                                        "value": "Unexpected error"
+                                    },
+                                    "Service Unavailable (503)": {
+                                        "summary": "statusCode=503, waitMs=3000",
+                                        "description": "Service Unavailable (503)",
+                                        "value": "Service temporarily unavailable"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "head": {
+                "tags": [
+                    "Mirror"
+                ],
+                "summary": "Mirror GET/HEAD Request",
+                "description": "Spiegelt den GET/HEAD-Request basierend auf den Query-Parametern.",
+                "operationId": "mirrorGet_1",
+                "parameters": [
+                    {
+                        "name": "statusCode",
+                        "in": "query",
+                        "description": "HTTP Statuscode der Antwort",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 200,
+                            "description": "HTTP Statuscode der Antwort",
+                            "maximum": 599,
+                            "minimum": 100
+                        }
+                    },
+                    {
+                        "name": "waitMs",
+                        "in": "query",
+                        "description": "Wartezeit in Millisekunden",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 0,
+                            "description": "Wartezeit in Millisekunden",
+                            "maximum": 60000,
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "responseBody",
+                        "in": "query",
+                        "description": "Inhalt der Antwort",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "description": "Inhalt der Antwort",
+                            "example": "Hello World"
+                        },
+                        "example": "Hello World"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Erfolgreiche Antwort mit konfiguriertem Body",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Einfache Antwort": {
+                                        "description": "Einfache Antwort",
+                                        "value": "OK"
+                                    },
+                                    "JSON-Body": {
+                                        "description": "JSON-Body",
+                                        "value": {
+                                            "status": "healthy"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "4XX": {
+                        "description": "Konfigurierter Client-Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Not Found (404)": {
+                                        "summary": "statusCode=404",
+                                        "description": "Not Found (404)",
+                                        "value": "Resource not found"
+                                    },
+                                    "Too Many Requests (429)": {
+                                        "summary": "statusCode=429",
+                                        "description": "Too Many Requests (429)",
+                                        "value": "Rate limit exceeded"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "5XX": {
+                        "description": "Konfigurierter Server-Fehler oder interner Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Service Unavailable (503)": {
+                                        "summary": "statusCode=503, waitMs=5000",
+                                        "description": "Service Unavailable (503)",
+                                        "value": "Service temporarily unavailable"
+                                    },
+                                    "Gateway Timeout (504)": {
+                                        "summary": "statusCode=504, waitMs=30000",
+                                        "description": "Gateway Timeout (504)",
+                                        "value": "Upstream timeout"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "Mirror"
+                ],
+                "summary": "Mirror Request",
+                "description": "Spiegelt den Request basierend auf den Instruktionen im JSON-Body.",
+                "operationId": "mirror_3",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MirrorInstruction"
+                            },
+                            "examples": {
+                                "Erfolg mit Body": {
+                                    "summary": "200 OK mit JSON-Body",
+                                    "description": "Erfolg mit Body",
+                                    "value": {
+                                        "statusCode": 200,
+                                        "waitMs": 0,
+                                        "responseBody": "{\"result\": \"ok\"}",
+                                        "responseHeaders": {
+                                            "Content-Type": "application/json"
+                                        }
+                                    }
+                                },
+                                "Simulierter Fehler": {
+                                    "summary": "503 mit Verzögerung",
+                                    "description": "Simulierter Fehler",
+                                    "value": {
+                                        "statusCode": 503,
+                                        "waitMs": 3000,
+                                        "responseBody": "Service unavailable",
+                                        "responseHeaders": {
+                                            "Retry-After": "30"
+                                        }
+                                    }
+                                },
+                                "Timeout-Test": {
+                                    "summary": "200 mit 10s Verzögerung",
+                                    "description": "Timeout-Test",
+                                    "value": {
+                                        "statusCode": 200,
+                                        "waitMs": 10000,
+                                        "responseBody": "Delayed response",
+                                        "responseHeaders": {}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Erfolgreiche Antwort mit konfiguriertem Body",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Einfache Antwort": {
+                                        "description": "Einfache Antwort",
+                                        "value": "OK"
+                                    },
+                                    "JSON-Body": {
+                                        "description": "JSON-Body",
+                                        "value": {
+                                            "result": "ok"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "4XX": {
+                        "description": "Konfigurierter Client-Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Bad Request (400)": {
+                                        "summary": "statusCode=400",
+                                        "description": "Bad Request (400)",
+                                        "value": "Invalid input"
+                                    },
+                                    "Unauthorized (401)": {
+                                        "summary": "statusCode=401",
+                                        "description": "Unauthorized (401)",
+                                        "value": "Authentication required"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "5XX": {
+                        "description": "Konfigurierter Server-Fehler oder interner Fehler",
+                        "content": {
+                            "text/plain": {
+                                "examples": {
+                                    "Internal Server Error (500)": {
+                                        "summary": "statusCode=500",
+                                        "description": "Internal Server Error (500)",
+                                        "value": "Unexpected error"
+                                    },
+                                    "Service Unavailable (503)": {
+                                        "summary": "statusCode=503, waitMs=3000",
+                                        "description": "Service Unavailable (503)",
+                                        "value": "Service temporarily unavailable"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/resolve/{hostname}": {
+            "get": {
+                "tags": [
+                    "DNS Lookup"
+                ],
+                "summary": "DNS-Auflösung durchführen",
+                "description": "Führt eine lokale DNS-Auflösung für den angegebenen Hostnamen durch und gibt die gefundenen IP-Adressen zurück.",
+                "operationId": "resolveDns",
+                "parameters": [
+                    {
+                        "name": "hostname",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "DNS-Auflösung erfolgreich",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "IPv4": {
+                                        "summary": "Einzelne IPv4-Adresse",
+                                        "description": "IPv4",
+                                        "value": [
+                                            "93.184.216.34"
+                                        ]
+                                    },
+                                    "IPv4 + IPv6": {
+                                        "summary": "Mehrere Adressen",
+                                        "description": "IPv4 + IPv6",
+                                        "value": [
+                                            "93.184.216.34",
+                                            "2606:2800:21f:cb07:6820:80da:af6b:8b2c"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Hostname konnte nicht aufgelöst werden",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "Unbekannter Host": {
+                                        "description": "Unbekannter Host",
+                                        "value": [
+                                            "Hostname 'unbekannt.local' konnte nicht aufgelöst werden."
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "DNS-Auflösung wegen Sicherheitseinschränkungen verweigert",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "SecurityManager": {
+                                        "description": "SecurityManager",
+                                        "value": [
+                                            "DNS-Auflösung aufgrund von Sicherheitseinschränkungen verweigert."
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unerwarteter Fehler",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "Unbekannter Fehler": {
+                                        "description": "Unbekannter Fehler",
+                                        "value": [
+                                            "Ein unerwarteter Fehler ist aufgetreten."
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ping/{hostname}": {
+            "get": {
+                "tags": [
+                    "DNS Lookup"
+                ],
+                "summary": "Host anpingen",
+                "description": "Prüft die Erreichbarkeit eines Hosts und gibt Antwortzeit sowie aufgelöste IP zurück.",
+                "operationId": "ping",
+                "parameters": [
+                    {
+                        "name": "hostname",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "timeoutMs",
+                        "in": "query",
+                        "description": "Timeout in Millisekunden",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1000,
+                            "description": "Timeout in Millisekunden",
+                            "example": 1000
+                        },
+                        "example": 1000
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Host ist erreichbar",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "Erreichbar": {
+                                        "description": "Erreichbar",
+                                        "value": {
+                                            "hostname": "google.com",
+                                            "resolvedIp": "142.250.185.46",
+                                            "reachable": true,
+                                            "responseTimeMs": 12
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "408": {
+                        "description": "Host nicht erreichbar (Timeout)",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "Timeout": {
+                                        "description": "Timeout",
+                                        "value": {
+                                            "hostname": "192.0.2.1",
+                                            "resolvedIp": "192.0.2.1",
+                                            "reachable": false,
+                                            "responseTimeMs": 1000
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Hostname konnte nicht aufgelöst werden",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "Unbekannter Host": {
+                                        "description": "Unbekannter Host",
+                                        "value": {
+                                            "hostname": "unbekannt.local",
+                                            "resolvedIp": null,
+                                            "reachable": false,
+                                            "responseTimeMs": 0
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unerwarteter Fehler",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "Fehler": {
+                                        "description": "Fehler",
+                                        "value": {
+                                            "hostname": "example.com",
+                                            "resolvedIp": null,
+                                            "reachable": false,
+                                            "responseTimeMs": 0
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/": {
+            "get": {
+                "tags": [
+                    "Home"
+                ],
+                "summary": "Startseite",
+                "description": "Zeigt die Startseite mit Service-Informationen an.",
+                "operationId": "home",
+                "responses": {
+                    "200": {
+                        "description": "Startseite erfolgreich geladen",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Template nicht gefunden oder Build-Properties fehlerhaft",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "MirrorInstruction": {
+                "type": "object",
+                "description": "Instruktion für den Mirror-Service: definiert Statuscode, Verzögerung, Body und Headers der gespiegelten Antwort.",
+                "properties": {
+                    "statusCode": {
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 200,
+                        "description": "HTTP Statuscode der Antwort",
+                        "maximum": 599,
+                        "minimum": 100
+                    },
+                    "waitMs": {
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 0,
+                        "description": "Wartezeit in Millisekunden",
+                        "maximum": 60000,
+                        "minimum": 0
+                    },
+                    "responseBody": {
+                        "type": "string",
+                        "description": "Inhalt der Antwort",
+                        "example": "Hello World"
+                    },
+                    "responseHeaders": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Zusätzliche Response-Header als Key-Value-Paare",
+                        "example": {
+                            "X-Custom-Header": "Value"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
