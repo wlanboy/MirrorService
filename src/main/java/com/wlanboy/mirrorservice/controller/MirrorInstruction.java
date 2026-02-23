@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 
 import java.util.Map;
 
+@Schema(description = "Instruktion für den Mirror-Service: definiert Statuscode, Verzögerung, Body und Headers der gespiegelten Antwort.")
 public record MirrorInstruction(
     @Schema(description = "HTTP Statuscode der Antwort", defaultValue = "200", minimum = "100", maximum = "599")
     @Min(value = 100, message = "StatusCode muss mindestens 100 sein")
@@ -17,11 +18,11 @@ public record MirrorInstruction(
     @Max(value = 60000, message = "WaitMs darf maximal 60000 sein")
     int waitMs,
 
-    @Schema(description = "Inhalt der Antwort")
+    @Schema(description = "Inhalt der Antwort", example = "Hello World")
     String responseBody,
 
     @Schema(
-        description = "Zusätzliche Header",
+        description = "Zusätzliche Response-Header als Key-Value-Paare",
         additionalProperties = Schema.AdditionalPropertiesValue.USE_ADDITIONAL_PROPERTIES_ANNOTATION,
         example = "{\"X-Custom-Header\": \"Value\"}"
     )

@@ -9,10 +9,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @Controller
-@Tag(name = "Home", description = "Startseiten-Endpunkt")
+@Tag(name = "Home", description = "Liefert die Startseite des MirrorService mit Servicename und Versionsinformationen aus den Build-Properties.")
 public class HelloController {
 
     private final Optional<BuildProperties> buildProperties;
@@ -22,7 +23,10 @@ public class HelloController {
     }
 
     @Operation(summary = "Startseite", description = "Zeigt die Startseite mit Service-Informationen an.")
-    @ApiResponse(responseCode = "200", description = "Startseite erfolgreich geladen")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Startseite erfolgreich geladen"),
+        @ApiResponse(responseCode = "500", description = "Template nicht gefunden oder Build-Properties fehlerhaft")
+    })
     @GetMapping("/")
     public String home(Model model) {
         model.addAttribute("serviceName", buildProperties.map(BuildProperties::getName).orElse("MirrorService"));
