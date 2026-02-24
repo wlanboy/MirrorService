@@ -12,11 +12,14 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests compile spring-boot:p
 
 # JAR extrahieren für Layering (Layer gemäß src/main/resources/layers.xml):
 #   - dependencies, observability-dependencies, spring-boot-loader, snapshot-dependencies, application
-RUN cp target/mirrorservice-0.3.1-SNAPSHOT.jar app.jar && \
+# Versionsneutrale Selektion: schließt das Original-JAR (nicht-umgepacktes) aus
+RUN JAR=$(ls target/*.jar | grep -v original) && \
+    cp "$JAR" app.jar && \
     java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 
 # ============================
-# 2. JRE Creation Stage (NEU)
+# 2. JRE-Erstellung
+# (noch innerhalb der build-Stage – benötigt die extrahierten Layer aus Phase 1)
 # ============================
 
 # WICHTIG: Umschalten auf root, um Pakete zu installieren
@@ -49,9 +52,7 @@ RUN jdeps \
 # jetty jndi config -> java.naming
 # jdk25 warnings -> sun.misc.Unsafe, das von Objenesis/CGLIB -> jdk.unsupported
 # org.ietf.jgss.GSSException -> java.security.jgss, java.security.sasl
-# Generational ZGC (Z Garbage Collector) setzen
-# ExitOnOutOfMemoryError OOM killt den Thread und die JVM beenden.
-# UTF-8 only String handling
+
 RUN $JAVA_HOME/bin/jlink \
     --module-path /usr/lib/jvm/java-25/jmods \
     --add-modules java.base,$(cat modules.txt),jdk.crypto.ec,jdk.charsets,java.desktop,java.management,jdk.management,jdk.zipfs,java.instrument,java.sql,java.naming,jdk.unsupported,java.security.jgss,java.security.sasl \
@@ -59,7 +60,6 @@ RUN $JAVA_HOME/bin/jlink \
     --no-man-pages \
     --no-header-files \
     --compress zip-9 \
-    --add-options "-XX:+UseZGC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8" \    
     --output /custom-jre
 
 # Erzeuge die Klassenliste für AppCDS
@@ -79,8 +79,8 @@ RUN /custom-jre/bin/java -XX:ArchiveClassesAtExit=app.jsa \
          -Dspring.aot.enabled=true \
          -cp "extracted/dependencies/*:extracted/observability-dependencies/*:extracted/snapshot-dependencies/*:extracted/application/" \
          org.springframework.boot.loader.launch.JarLauncher || [ -f app.jsa ]
-# Hinweis: Das "|| true" ist wichtig, da die App beim Training mangels DB/Config evtl. abbricht, 
-# aber das Archiv trotzdem schreibt.
+# Hinweis: Das "|| [ -f app.jsa ]" ist wichtig, da die App beim Training mangels DB/Config evtl. abbricht,
+# aber das Archiv trotzdem schreibt. Der Exit-Code 1 ist nur akzeptabel, wenn app.jsa existiert.
 
 # ============================
 # 3. Runtime Stage (Minimales OS)
@@ -90,7 +90,7 @@ RUN /custom-jre/bin/java -XX:ArchiveClassesAtExit=app.jsa \
 FROM gcr.io/distroless/cc
 
 LABEL org.opencontainers.image.title="Java mirrorservice with Custom JRE" \
-      org.opencontainers.image.version="0.0.1-SNAPSHOT"
+      org.opencontainers.image.version="0.3.1-SNAPSHOT"
 
 WORKDIR /app
 
@@ -112,7 +112,47 @@ COPY --chown=65532:65532 containerconfig/application.properties /app/config/appl
 
 EXPOSE 8080
 
-#ENTRYPOINT ["/app/entrypoint.sh"]
+# ENTRYPOINT-Parameter:
+#   /opt/jre/bin/java
+#       Startet die JVM aus dem per jlink erzeugten Custom JRE (kein System-Java)
+#
+#   -XX:SharedArchiveFile=/app/app.jsa
+#       Lädt das AppCDS-Archiv (Class Data Sharing) – verkürzt Startzeit erheblich,
+#       da Klassen bereits analysiert & gemappt vorliegen
+#
+#   -Dspring.aot.enabled=true
+#       Aktiviert den AOT-Modus von Spring Boot – nutzt die beim Build vorberechneten
+#       Proxies, Reflection-Metadaten und Bean-Definitionen statt Runtime-Analyse
+#
+#   -Djava.security.egd=file:/dev/./urandom
+#       Verhindert Blockierung auf /dev/random im Container (kaum Entropie verfügbar);
+#       /dev/./urandom ist der übliche Workaround für die JVM-interne Erkennung
+#
+#   -XX:MaxRAMPercentage=80
+#       Begrenzt den Java-Heap auf 80 % des Container-Speicherlimits (statt fester -Xmx)
+#
+#   -XX:InitialRAMPercentage=40
+#       Reserviert zu Beginn 40 % des Container-Speichers als Heap; reduziert Heap-Expansions
+#
+#   -XX:+UseZGC
+#       Aktiviert den Z Garbage Collector: sehr kurze GC-Pausen (<1 ms), ideal für
+#       latenzempfindliche Services; in Java 21+ ist Generational ZGC der Standard
+#
+#   -XX:+ExitOnOutOfMemoryError
+#       Beendet die JVM sofort bei OutOfMemoryError – der Container-Orchestrator
+#       (Kubernetes/Docker) kann neu starten; verhindert einen "lebenden Zombie"-Prozess
+#
+#   -Dfile.encoding=UTF-8
+#       Erzwingt UTF-8 als Standard-Zeichensatz; das Custom JRE enthält kein
+#       Default-Locale-Setup aus dem OS
+#
+#   org.springframework.boot.loader.launch.JarLauncher
+#       Spring Boot Launcher-Klasse; startet die Anwendung aus den extrahierten
+#       Layern (extracted/) statt aus einem einzelnen Fat-JAR
+#
+#   --spring.config.location=file:/app/config/application.properties
+#       Überschreibt den Standard-Konfigurationspfad; Konfiguration liegt als
+#       separater Docker-Layer vor (besseres Cache-Verhalten bei Config-Änderungen)
 ENTRYPOINT [ \
     "/opt/jre/bin/java", \
     "-XX:SharedArchiveFile=/app/app.jsa", \
@@ -122,6 +162,7 @@ ENTRYPOINT [ \
     "-XX:InitialRAMPercentage=40", \
     "-XX:+UseZGC", \
     "-XX:+ExitOnOutOfMemoryError", \
+    "-Dfile.encoding=UTF-8", \
     "org.springframework.boot.loader.launch.JarLauncher", \
     "--spring.config.location=file:/app/config/application.properties" \
 ]
