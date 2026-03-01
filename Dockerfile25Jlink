@@ -60,21 +60,22 @@ RUN $JAVA_HOME/bin/jlink \
     --no-man-pages \
     --no-header-files \
     --compress zip-9 \
-    --output /custom-jre
-
-# Erzeuge die Klassenliste für AppCDS
-RUN /custom-jre/bin/java -Djarmode=tools -jar app.jar extract --layers --destination cds-extraction
+    --output /opt/jre
 
 # Erzeugt das Basis-Archiv für das Custom JRE
-RUN /custom-jre/bin/java -Xshare:dump
+# WICHTIG: -XX:+UseZGC muss hier angegeben werden! ZGC nutzt Colored Pointers (andere Heap-Struktur als G1GC).
+# Das CDS-Archiv wird mit dieser Heap-Konfiguration erstellt. Wenn zur Laufzeit ein anderer GC
+# aktiv ist, lehnt die JVM das Archiv mit "Loading static archive failed" ab.
+RUN /opt/jre/bin/java -XX:+UseZGC -Xshare:dump
 
 # CDS Archiv generieren
 # 1. Liste der Klassen erstellen (Training)
-# WICHTIG: Wir nutzen /custom-jre/bin/java, damit das Archiv zum JRE passt!
-# spring.context.exit weist Spring Boot an, den Application Context aufzubauen (damit alle Klassen geladen werden), 
+# WICHTIG: Wir nutzen /opt/jre/bin/java, damit das Archiv zum Runtime-Pfad passt!
+# WICHTIG: -XX:+UseZGC muss mit dem Runtime-GC übereinstimmen (Archiv ist GC-gebunden)!
+# spring.context.exit weist Spring Boot an, den Application Context aufzubauen (damit alle Klassen geladen werden),
 # aber die App sofort danach sauber zu beenden
 # Training gegen die entpackten Layer (muss identisch zum Start sein!)
-RUN /custom-jre/bin/java -XX:ArchiveClassesAtExit=app.jsa \
+RUN /opt/jre/bin/java -XX:+UseZGC -XX:ArchiveClassesAtExit=app.jsa \
          -Dspring.context.exit=onRefresh \
          -Dspring.aot.enabled=true \
          -cp "extracted/dependencies/*:extracted/observability-dependencies/*:extracted/snapshot-dependencies/*:extracted/application/" \
@@ -94,8 +95,8 @@ LABEL org.opencontainers.image.title="Java mirrorservice with Custom JRE" \
 
 WORKDIR /app
 
-# Kopiere das Custom JRE aus der Build-Stage
-COPY --from=build /custom-jre /opt/jre
+# Kopiere das Custom JRE aus der Build-Stage (wurde direkt nach /opt/jre gebaut)
+COPY --from=build /opt/jre /opt/jre
 ENV PATH="/opt/jre/bin:$PATH"
 
 USER nonroot
