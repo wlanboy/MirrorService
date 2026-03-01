@@ -6,6 +6,11 @@ FROM registry.access.redhat.com/ubi9/openjdk-25:latest AS build
 
 WORKDIR /app
 
+RUN mkdir -p /app/config /app/data && \
+    touch /app/config/.keep /app/data/.keep && \
+    chmod -R g+w /app/config /app/data
+# → Verzeichnisse in der Build-Stage anlegen (kein root in der Runtime-Stage nötig)
+
 COPY pom.xml .
 # → Nur die pom.xml wird kopiert, damit Maven bereits alle Dependencies auflösen kann,
 #   ohne dass sich der Sourcecode ändert. Das verbessert das Layer-Caching.
@@ -24,7 +29,8 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests compile spring-boot:p
 # → package: Baut das finale JAR inkl. AOT-Klassen.
 # → Wieder mit Maven-Cache, um Build-Zeit zu sparen.
 
-RUN cp target/mirrorservice-0.3.1-SNAPSHOT.jar app.jar && \
+RUN JAR=$(ls target/*.jar | grep -v original) && \
+    cp "$JAR" app.jar && \
     java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 # → Spring Boot 4.x Layertools: --launcher ist erforderlich um den Loader zu extrahieren
 # → Extrahierte Layer gemäß src/main/resources/layers.xml:
@@ -34,6 +40,12 @@ RUN cp target/mirrorservice-0.3.1-SNAPSHOT.jar app.jar && \
 #     - snapshot-dependencies
 #     - application             (BOOT-INF/classes + AOT-Metadaten)
 # → Vorteil: Docker kann diese Layer getrennt cachen → schnellere Deployments.
+
+RUN java -XX:ArchiveClassesAtExit=app.jsa \
+         -Dspring.context.exit=onRefresh \
+         -Dspring.aot.enabled=true \
+         -cp "extracted/dependencies/*:extracted/observability-dependencies/*:extracted/snapshot-dependencies/*:extracted/application/" \
+         org.springframework.boot.loader.launch.JarLauncher || [ -f app.jsa ]
 
 # ============================
 # 2. Runtime Stage (Java 25)
@@ -51,18 +63,11 @@ LABEL org.opencontainers.image.title="MirrorService" \
 
 WORKDIR /app
 
-USER root
-# → Temporär root, um Verzeichnisse anzulegen und Berechtigungen zu setzen.
-
-RUN mkdir -p /app/config /app/data && \
-    chown -R 185:0 /app && \
-    chmod -R g+w /app
-# → /app/config: für externe Konfigurationen
-# → /app/data: für persistente Daten
-# → Non-root User für sicheren Betrieb
-
 USER 185
-# → Zurück zum nicht-privilegierten User.
+
+COPY --from=build --chown=185:0 /app/config /app/config
+COPY --from=build --chown=185:0 /app/data /app/data
+# → Verzeichnisse mit korrekter Ownership aus Build-Stage übernehmen (kein root erforderlich)
 
 COPY --from=build --chown=185:185 /app/extracted/dependencies/ ./
 # → Stabile Release-Bibliotheken (Spring, Jetty, Thymeleaf, Reactor …). Ändern sich selten.
@@ -83,6 +88,8 @@ COPY --from=build --chown=185:185 /app/extracted/application-resources/ ./
 COPY --from=build --chown=185:185 /app/extracted/application/ ./
 # → Kompilierter App-Code + AOT-Metadaten. Ändert sich am häufigsten.
 
+COPY --from=build --chown=185:185 /app/app.jsa /app/app.jsa
+
 COPY --chown=185:185 containerconfig/application.properties /app/config/application.properties
 # → Externe Konfiguration ins Config-Verzeichnis für die Referenz für ENV Vars
 
@@ -91,11 +98,6 @@ COPY --chown=185:185 entrypoint.sh /app/entrypoint.sh
 
 EXPOSE 8003
 # → Dokumentiert den Port, den die App verwendet (Spring Boot Default).
-
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:8003/actuator/health || exit 1
-# → Nutzt den Spring Boot Actuator Health Endpoint.
-# → Alternativ: wget oder ein einfacher TCP-Check
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 # → Startet die App über das Entry-Skript.

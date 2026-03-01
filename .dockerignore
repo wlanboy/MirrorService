@@ -1,0 +1,18 @@
+# Maven
+target/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Nicht benötigt im Image
+Dockerfile*
+.dockerignore
+README.md
+*.md
+screenshots/
