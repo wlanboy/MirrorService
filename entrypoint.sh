@@ -33,6 +33,6 @@ exec java \
   -XX:MaxGCPauseMillis=200 \
   -XX:+ExplicitGCInvokesConcurrent \
   -XX:+ExitOnOutOfMemoryError \
-  org.springframework.boot.loader.launch.JarLauncher \
-  --spring.config.location=file:/app/config/application.properties
+  -Dspring.config.location=file:/app/config/application.properties \
+  org.springframework.boot.loader.launch.JarLauncher
   
