@@ -93,12 +93,30 @@ COPY --from=build --chown=185:185 /app/app.jsa /app/app.jsa
 COPY --chown=185:185 containerconfig/application.properties /app/config/application.properties
 # → Externe Konfiguration ins Config-Verzeichnis für die Referenz für ENV Vars
 
-COPY --chown=185:185 entrypoint.sh /app/entrypoint.sh
-# → Custom Entrypoint für Java OPTS.
-
 EXPOSE 8003
 # → Dokumentiert den Port, den die App verwendet (Spring Boot Default).
 
-ENTRYPOINT ["/app/entrypoint.sh"]
-# → Startet die App über das Entry-Skript.
-# → Vorteil: Skript kann Umgebungsvariablen verarbeiten, ENTRYPOINT nicht.
+# Wir nutzen exec, damit Java die PID 1 übernimmt.
+# Dies ist wichtig für das Signal-Handling (z.B. in Kubernetes).
+# exec ersetzt den aktuellen Shell-Prozess durch den Java-Prozess.
+
+# JVM-Optionen:
+# -Djava.security.egd: Beschleunigt kryptografische Initialisierung
+# -XX:MaxRAMPercentage=50: Java nutzt max 50% des Container-RAMs
+# -XX:InitialRAMPercentage=30: Startet mit 30% RAM (schnellerer Startup)
+# -XX:+UseG1GC: G1 Garbage Collector für niedrige Latenz
+# -XX:MaxGCPauseMillis=200: Zielwert für GC-Pause
+# -XX:+ExplicitGCInvokesConcurrent: System.gc() läuft parallel
+# -XX:+ExitOnOutOfMemoryError: JVM beendet bei OOM (Kubernetes kann neustarten)
+ENTRYPOINT ["java", \
+  "-XX:SharedArchiveFile=/app/app.jsa", \
+  "-Dspring.aot.enabled=true", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-XX:MaxRAMPercentage=50", \
+  "-XX:InitialRAMPercentage=30", \
+  "-XX:+UseG1GC", \
+  "-XX:MaxGCPauseMillis=200", \
+  "-XX:+ExplicitGCInvokesConcurrent", \
+  "-XX:+ExitOnOutOfMemoryError", \
+  "-Dspring.config.location=file:/app/config/application.properties", \
+  "org.springframework.boot.loader.launch.JarLauncher"]
