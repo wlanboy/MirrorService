@@ -31,7 +31,7 @@ spec:
               memory: "500Mi"
           volumeMounts:
             - name: config-volume
-              mountPath: /app/application.properties
+              mountPath: /app/config/application.properties
               subPath: application.properties
             - name: tmp-volume
               mountPath: /tmp
