@@ -16,6 +16,10 @@ spec:
         - name: {{ .Values.deploymentName }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.extraEnv }}
+          env:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - containerPort: {{ .Values.service.port }}
           resources: 
@@ -31,6 +35,9 @@ spec:
               subPath: application.properties
             - name: tmp-volume
               mountPath: /tmp
+          {{- with .Values.extraVolumeMounts }}
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
@@ -49,3 +56,6 @@ spec:
             name: {{ .Values.deploymentName }}-config
         - name: tmp-volume
           emptyDir: {}
+      {{- with .Values.extraVolumes }}
+      {{- toYaml . | nindent 8 }}
+      {{- end }}

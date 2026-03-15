@@ -31,3 +31,7 @@ certmanager:
   issuer: local-ca-issuer
   kind: ClusterIssuer
   secretName: mirrorapi-tls
+
+extraVolumeMounts: []
+extraVolumes: []
+extraEnv: []
