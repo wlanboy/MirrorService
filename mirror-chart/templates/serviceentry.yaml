@@ -1,0 +1,15 @@
+{{- if .Values.serviceEntry.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: {{ .Values.deploymentName }}-mirror-gmk-lan
+spec:
+  hosts:
+    - {{ .Values.serviceEntry.host }}
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  resolution: DNS
+  location: MESH_EXTERNAL
+{{- end }}

@@ -22,6 +22,10 @@ istio:
   gateway: mirror-gateway
   gatewayNamespace: "istio-ingress"
 
+serviceEntry:
+  enabled: true
+  host: mirror.gmk.lan
+
 certmanager:
   enabled: true
   issuer: local-ca-issuer
