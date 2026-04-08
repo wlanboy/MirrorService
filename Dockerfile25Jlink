@@ -109,7 +109,7 @@ COPY --from=build --chown=65532:65532 /app/extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=65532:65532 /app/extracted/application-resources/ ./
 COPY --from=build --chown=65532:65532 /app/extracted/application/ ./
 COPY --from=build --chown=65532:65532 /app/app.jsa /app/app.jsa
-COPY --chown=65532:65532 containerconfig/application.properties /app/config/application.properties
+COPY --chown=65532:65532 containerconfig/application.yml /app/config/application.yml
 
 EXPOSE 8080
 
@@ -165,5 +165,5 @@ ENTRYPOINT [ \
     "-XX:+ExitOnOutOfMemoryError", \
     "-Dfile.encoding=UTF-8", \
     "org.springframework.boot.loader.launch.JarLauncher", \
-    "--spring.config.location=file:/app/config/application.properties" \
+    "--spring.config.location=file:/app/config/application.yml" \
 ]

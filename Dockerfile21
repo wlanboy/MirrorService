@@ -3,7 +3,8 @@ VOLUME /tmp
 
 WORKDIR /app
 COPY target/*.jar /app/mirrorservice.jar
+COPY containerconfig/application.yml /app/application.yml
 
 EXPOSE 8003
 
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app/mirrorservice.jar", "--spring.config.location=file:/app/application.properties"]
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app/mirrorservice.jar", "--spring.config.location=file:/app/application.yml"]

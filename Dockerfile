@@ -2,7 +2,6 @@
 # 1. Build Stage (Java 25)
 # ============================
 FROM registry.access.redhat.com/ubi9/openjdk-25:latest AS build
-# Eclipse Temurin bietet aktuelle Java-Versionen inkl. Java 25
 
 WORKDIR /app
 
@@ -55,7 +54,7 @@ FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:latest
 # OCI-konforme Labels
 LABEL org.opencontainers.image.title="MirrorService" \
       org.opencontainers.image.description="Spring Framework based service mirroring requests" \
-      org.opencontainers.image.version="0.0.1-SNAPSHOT" \
+      org.opencontainers.image.version="0.3.1-SNAPSHOT" \
       org.opencontainers.image.vendor="wlanboy" \
       org.opencontainers.image.source="https://github.com/wlanboy/MirrorService" \
       org.opencontainers.image.licenses="MIT" \
@@ -90,7 +89,7 @@ COPY --from=build --chown=185:185 /app/extracted/application/ ./
 
 COPY --from=build --chown=185:185 /app/app.jsa /app/app.jsa
 
-COPY --chown=185:185 containerconfig/application.properties /app/config/application.properties
+COPY --chown=185:185 containerconfig/application.yml /app/config/application.yml
 # → Externe Konfiguration ins Config-Verzeichnis für die Referenz für ENV Vars
 
 EXPOSE 8003
@@ -118,5 +117,5 @@ ENTRYPOINT ["java", \
   "-XX:MaxGCPauseMillis=200", \
   "-XX:+ExplicitGCInvokesConcurrent", \
   "-XX:+ExitOnOutOfMemoryError", \
-  "-Dspring.config.location=file:/app/config/application.properties", \
+  "-Dspring.config.location=file:/app/config/application.yml", \
   "org.springframework.boot.loader.launch.JarLauncher"]
