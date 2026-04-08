@@ -6,7 +6,12 @@ server:
   port: ${PORT:8003}
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info,metrics
   endpoint:
     health:
+      show-details: always
       probes:
         enabled: true
