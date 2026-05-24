@@ -43,7 +43,7 @@ RUN JAR=$(ls target/*.jar | grep -v original) && \
 RUN java -XX:ArchiveClassesAtExit=app.jsa \
          -Dspring.context.exit=onRefresh \
          -Dspring.aot.enabled=true \
-         -cp "extracted/dependencies/*:extracted/observability-dependencies/*:extracted/snapshot-dependencies/*:extracted/application/" \
+         -cp "extracted/dependencies/*:extracted/observability-dependencies/*:extracted/snapshot-dependencies/*:extracted/spring-boot-loader/*:extracted/application/" \
          org.springframework.boot.loader.launch.JarLauncher || [ -f app.jsa ]
 
 # ============================
