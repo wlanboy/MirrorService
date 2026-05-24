@@ -1,0 +1,15 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: mirrorservice-pipeline
+nodes:
+  - role: control-plane
+    # kind läuft als Docker-Container – Ressourcen werden vom Docker-Host bereitgestellt.
+    # Stelle sicher, dass Docker mindestens 6 GiB RAM zugewiesen hat
+    # (Docker Desktop: Settings → Resources).
+    kubeadmConfigPatches:
+      - |
+        kind: KubeletConfiguration
+        # Maven und Kaniko sind speicherintensiv; Eviction erst bei 5 % freiem Speicher.
+        evictionHard:
+          memory.available: "256Mi"
+          nodefs.available: "5%"
