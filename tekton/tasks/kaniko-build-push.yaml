@@ -1,0 +1,67 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: kaniko-build-push
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/displayName: "Docker Build & Push (Kaniko)"
+spec:
+  description: >-
+    Builds a Docker image with Kaniko (no Docker daemon required) and pushes
+    it to Docker Hub. Kaniko supports RUN --mount=type=cache syntax but treats
+    the cache as ephemeral (no cross-build caching).
+  workspaces:
+    - name: source
+      description: Workspace containing source code and Dockerfile.
+    - name: dockerconfig
+      description: >-
+        Workspace mounted from a Secret that contains config.json with Docker Hub
+        credentials. Kaniko reads credentials from /kaniko/.docker/config.json.
+      mountPath: /kaniko/.docker
+  params:
+    - name: IMAGE
+      type: string
+      description: "Full image reference to build and push, e.g. wlanboy/mirrorservice:latest"
+    - name: DOCKERFILE
+      type: string
+      default: ./Dockerfile
+      description: Path to the Dockerfile, relative to the source workspace root.
+    - name: CONTEXT
+      type: string
+      default: "."
+      description: Build context path, relative to the source workspace root.
+    - name: EXTRA_ARGS
+      type: array
+      default: []
+      description: Additional kaniko executor flags.
+    - name: KANIKO_IMAGE
+      type: string
+      default: gcr.io/kaniko-project/executor:v1.23.2
+  results:
+    - name: IMAGE_DIGEST
+      description: Digest of the built image.
+  steps:
+    - name: build-and-push
+      image: $(params.KANIKO_IMAGE)
+      workingDir: $(workspaces.source.path)
+      args:
+        - --dockerfile=$(workspaces.source.path)/$(params.DOCKERFILE)
+        - --context=$(workspaces.source.path)/$(params.CONTEXT)
+        - --destination=$(params.IMAGE)
+        - --digest-file=$(results.IMAGE_DIGEST.path)
+        - --cache=false
+        - --use-new-run
+        # /product_uuid is a read-only virtual file; Kaniko fails trying to delete
+        # it during the multi-stage filesystem cleanup in kind/rootless environments.
+        - --ignore-path=/product_uuid
+        - "$(params.EXTRA_ARGS[*])"
+      securityContext:
+        runAsUser: 0
+      computeResources:
+        requests:
+          memory: "1Gi"
+          cpu: "500m"
+        limits:
+          memory: "4Gi"
+          cpu: "2"

@@ -1,0 +1,46 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  # generateName creates a unique name on every apply (mirrorservice-run-xxxxx)
+  generateName: mirrorservice-run-
+  labels:
+    app.kubernetes.io/name: mirrorservice
+spec:
+  pipelineRef:
+    name: mirrorservice-pipeline
+
+  taskRunTemplate:
+    serviceAccountName: mirrorservice-pipeline-sa
+
+  # ── Parameters ────────────────────────────────────────────────────────────────
+  params:
+    - name: repo-url
+      value: https://github.com/wlanboy/MirrorService.git
+    - name: revision
+      value: main
+    - name: image
+      value: wlanboy/mirrorservice:latest
+    - name: dockerfile
+      value: ./Dockerfile
+
+  # ── Workspaces ────────────────────────────────────────────────────────────────
+  workspaces:
+    # Ephemeral 2 GiB volume that lives for the duration of this run.
+    # The clone, maven-build, and kaniko steps all share this workspace.
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 2Gi
+
+    # Docker Hub credentials – see secret-template.yaml for how to create this.
+    - name: docker-credentials
+      secret:
+        secretName: dockerhub-credentials
+
+  # ── Timeout ───────────────────────────────────────────────────────────────────
+  timeouts:
+    pipeline: 1h0m0s

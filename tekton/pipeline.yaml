@@ -1,0 +1,103 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: mirrorservice-pipeline
+  labels:
+    app.kubernetes.io/name: mirrorservice
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/displayName: "MirrorService: Build JAR → Build & Push Docker Image"
+spec:
+  description: >-
+    Three-stage pipeline:
+      1. git-clone   – checks out the source repository
+      2. maven-build – compiles the JAR with Spring Boot AOT processing
+      3. docker-push – builds the multi-stage Docker image with Kaniko and pushes to Docker Hub
+
+  # ── Parameters ──────────────────────────────────────────────────────────────
+  params:
+    - name: repo-url
+      type: string
+      description: Git repository URL to clone.
+      default: https://github.com/wlanboy/MirrorService.git
+    - name: revision
+      type: string
+      description: Git revision – branch, tag, or commit SHA.
+      default: main
+    - name: image
+      type: string
+      description: "Full Docker image reference, e.g. wlanboy/mirrorservice:latest"
+      default: wlanboy/mirrorservice:latest
+    - name: dockerfile
+      type: string
+      description: Path to the Dockerfile, relative to the repo root.
+      default: ./Dockerfile
+
+  # ── Workspaces ───────────────────────────────────────────────────────────────
+  workspaces:
+    - name: shared-data
+      description: >-
+        Shared PVC that carries source code from git-clone through maven-build
+        to kaniko. Must be ReadWriteOnce (or ReadWriteMany for parallel tasks).
+    - name: docker-credentials
+      description: >-
+        Secret workspace containing a Docker Hub config.json.
+        Mount the 'dockerhub-credentials' Secret here.
+
+  # ── Results ──────────────────────────────────────────────────────────────────
+  results:
+    - name: IMAGE_DIGEST
+      description: SHA256 digest of the pushed image.
+      value: $(tasks.docker-push.results.IMAGE_DIGEST)
+
+  # ── Tasks ────────────────────────────────────────────────────────────────────
+  tasks:
+    # 1. Clone ──────────────────────────────────────────────────────────────────
+    - name: clone
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-data
+      params:
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.revision)
+        - name: deleteExisting
+          value: "true"
+
+    # 2. Build JAR ──────────────────────────────────────────────────────────────
+    - name: build-jar
+      taskRef:
+        name: maven-build
+      runAfter:
+        - clone
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: GOALS
+          value:
+            - "-q"
+            - "-DskipTests"
+            - "compile"
+            - "spring-boot:process-aot"
+            - "package"
+
+    # 3. Build Docker image & push ──────────────────────────────────────────────
+    - name: docker-push
+      taskRef:
+        name: kaniko-build-push
+      runAfter:
+        - build-jar
+      workspaces:
+        - name: source
+          workspace: shared-data
+        - name: dockerconfig
+          workspace: docker-credentials
+      params:
+        - name: IMAGE
+          value: $(params.image)
+        - name: DOCKERFILE
+          value: $(params.dockerfile)

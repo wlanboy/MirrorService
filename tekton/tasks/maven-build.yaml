@@ -1,0 +1,49 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maven-build
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/displayName: "Maven Build (Java 25 + Spring Boot AOT)"
+spec:
+  description: >-
+    Builds the MirrorService JAR using Maven with Spring Boot AOT processing.
+    Uses the UBI9 OpenJDK 25 image, mirroring the Docker build stage.
+  workspaces:
+    - name: source
+      description: Workspace containing the checked-out source code.
+    - name: maven-cache
+      description: Optional PVC for the Maven local repository (~/.m2/repository).
+      optional: true
+  params:
+    - name: MAVEN_IMAGE
+      type: string
+      default: registry.access.redhat.com/ubi9/openjdk-25:latest
+      description: Builder image — must contain Maven and Java 25.
+    - name: GOALS
+      type: array
+      default:
+        - "-q"
+        - "compile"
+        - "spring-boot:process-aot"
+        - "package"
+      description: Maven goals and flags to execute.
+  steps:
+    - name: build
+      image: $(params.MAVEN_IMAGE)
+      workingDir: $(workspaces.source.path)
+      command: ["mvn"]
+      args:
+        - "-Dmaven.repo.local=$(workspaces.source.path)/.m2/repository"
+        - "$(params.GOALS[*])"
+      env:
+        - name: MAVEN_OPTS
+          value: "-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
+      computeResources:
+        requests:
+          memory: "1Gi"
+          cpu: "500m"
+        limits:
+          memory: "2Gi"
+          cpu: "2"
