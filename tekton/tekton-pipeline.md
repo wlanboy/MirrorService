@@ -1,5 +1,9 @@
 # MirrorService – Tekton Pipeline
 
+Dieses Dokument beschreibt den Aufbau und Betrieb der Tekton CI/CD-Pipeline für den MirrorService.
+Die Pipeline ersetzt die GitHub Actions Workflows durch eine lokale, Kubernetes-native Lösung auf Basis eines kind-Clusters.
+Sie umfasst alle Schritte von Repository-Clone über Maven-Build mit Spring Boot AOT bis zum Docker-Image-Push nach Docker Hub.
+
 ## Übersicht
 
 Die Pipeline besteht aus drei aufeinanderfolgenden Tasks und spiegelt den
