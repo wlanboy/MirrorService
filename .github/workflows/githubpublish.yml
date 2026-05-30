@@ -1,8 +1,12 @@
 name: Docker build and publish image to github
 on: 
   push:
-    tags: 
+    tags:
       - '*g'
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
