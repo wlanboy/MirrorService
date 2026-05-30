@@ -2,6 +2,9 @@ name: Docker build and publish multiarch image
 on: 
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
