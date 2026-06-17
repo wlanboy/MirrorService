@@ -1,7 +1,7 @@
 # ============================
 # 1. Build Stage (Java 25)
 # ============================
-FROM registry.access.redhat.com/ubi9/openjdk-25:latest AS build
+FROM registry.access.redhat.com/ubi10/openjdk-25:latest AS build
 WORKDIR /app
 
 # Maven Caching & Build (wie gehabt)
@@ -54,7 +54,7 @@ RUN jdeps \
 # org.ietf.jgss.GSSException -> java.security.jgss, java.security.sasl
 
 RUN $JAVA_HOME/bin/jlink \
-    --module-path /usr/lib/jvm/java-25/jmods \
+    --module-path $JAVA_HOME/jmods \
     --add-modules java.base,$(cat modules.txt),jdk.crypto.ec,jdk.charsets,java.desktop,java.management,jdk.management,jdk.zipfs,java.instrument,java.sql,java.naming,jdk.unsupported,java.security.jgss,java.security.sasl \
     --strip-debug \
     --no-man-pages \
@@ -78,7 +78,7 @@ RUN /opt/jre/bin/java -XX:+UseZGC -Xshare:dump
 RUN /opt/jre/bin/java -XX:+UseZGC -XX:ArchiveClassesAtExit=app.jsa \
          -Dspring.context.exit=onRefresh \
          -Dspring.aot.enabled=true \
-         -cp "extracted/dependencies/*:extracted/observability-dependencies/*:extracted/snapshot-dependencies/*:extracted/application/" \
+         -cp "extracted/dependencies/*:extracted/observability-dependencies/*:extracted/snapshot-dependencies/*:extracted/spring-boot-loader/*:extracted/application/" \
          org.springframework.boot.loader.launch.JarLauncher || [ -f app.jsa ]
 # Hinweis: Das "|| [ -f app.jsa ]" ist wichtig, da die App beim Training mangels DB/Config evtl. abbricht,
 # aber das Archiv trotzdem schreibt. Der Exit-Code 1 ist nur akzeptabel, wenn app.jsa existiert.
@@ -86,8 +86,8 @@ RUN /opt/jre/bin/java -XX:+UseZGC -XX:ArchiveClassesAtExit=app.jsa \
 # ============================
 # 3. Runtime Stage (Minimales OS)
 # ============================
-# Wir nutzen hier ubi9-minimal statt der vollen Java-Runtime
-#FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+# Wir nutzen hier ubi10-minimal statt der vollen Java-Runtime
+#FROM registry.access.redhat.com/ubi10/ubi-minimal:latest
 FROM gcr.io/distroless/cc
 
 LABEL org.opencontainers.image.title="Java mirrorservice with Custom JRE" \
@@ -111,7 +111,7 @@ COPY --from=build --chown=65532:65532 /app/extracted/application/ ./
 COPY --from=build --chown=65532:65532 /app/app.jsa /app/app.jsa
 COPY --chown=65532:65532 containerconfig/application.yml /app/config/application.yml
 
-EXPOSE 8080
+EXPOSE 8003
 
 # ENTRYPOINT-Parameter:
 #   /opt/jre/bin/java
@@ -151,7 +151,7 @@ EXPOSE 8080
 #       Spring Boot Launcher-Klasse; startet die Anwendung aus den extrahierten
 #       Layern (extracted/) statt aus einem einzelnen Fat-JAR
 #
-#   --spring.config.location=file:/app/config/application.properties
+#   --spring.config.location=file:/app/config/application.yml
 #       Überschreibt den Standard-Konfigurationspfad; Konfiguration liegt als
 #       separater Docker-Layer vor (besseres Cache-Verhalten bei Config-Änderungen)
 ENTRYPOINT [ \

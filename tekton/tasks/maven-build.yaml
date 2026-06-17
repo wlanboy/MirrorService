@@ -9,7 +9,7 @@ metadata:
 spec:
   description: >-
     Builds the MirrorService JAR using Maven with Spring Boot AOT processing.
-    Uses the UBI9 OpenJDK 25 image, mirroring the Docker build stage.
+    Uses the ubi10 OpenJDK 25 image, mirroring the Docker build stage.
   workspaces:
     - name: source
       description: Workspace containing the checked-out source code.
@@ -19,7 +19,7 @@ spec:
   params:
     - name: MAVEN_IMAGE
       type: string
-      default: registry.access.redhat.com/ubi9/openjdk-25:latest
+      default: registry.access.redhat.com/ubi10/openjdk-25:latest
       description: Builder image — must contain Maven and Java 25.
     - name: GOALS
       type: array

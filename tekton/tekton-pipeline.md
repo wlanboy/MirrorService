@@ -41,7 +41,7 @@ Standard-Task aus dem Tekton Hub. Klont das Repository in den geteilten
 Workspace `shared-data`.
 
 **2. maven-build**
-Führt `mvn compile spring-boot:process-aot package` auf dem UBI9 OpenJDK 25
+Führt `mvn compile spring-boot:process-aot package` auf dem ubi10 OpenJDK 25
 Image aus – identisch zum Build-Stage des Dockerfiles. Das Maven-Repository
 wird im Workspace unter `.m2/repository` gespeichert.
 

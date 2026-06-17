@@ -1,7 +1,7 @@
 # ============================
 # 1. Build Stage (Java 25)
 # ============================
-FROM registry.access.redhat.com/ubi9/openjdk-25:latest AS build
+FROM registry.access.redhat.com/ubi10/openjdk-25:latest AS build
 
 WORKDIR /app
 
@@ -49,7 +49,7 @@ RUN java -XX:ArchiveClassesAtExit=app.jsa \
 # ============================
 # 2. Runtime Stage (Java 25)
 # ============================
-FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:latest
+FROM registry.access.redhat.com/ubi10/openjdk-25-runtime:latest
 
 # OCI-konforme Labels
 LABEL org.opencontainers.image.title="MirrorService" \
