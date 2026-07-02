@@ -1,4 +1,4 @@
-name: Docker build and publish image to github
+name: Github Docker build and publish image
 on: 
   push:
     tags:
