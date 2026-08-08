@@ -11,7 +11,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       
     - name: Build and publish Docker Image to GitHub Packages Registry
       uses: VaultVulp/gp-docker-action@1.1.7
