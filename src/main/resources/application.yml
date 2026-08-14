@@ -1,9 +1,33 @@
 spring:
   application:
     name: mirrorservice
+  # Banner abschalten: spart eine Zeile Overhead beim Start und haelt die
+  # Container-Logs (stdout) sauberer.
+  main:
+    banner-mode: "off"
+  # Springs eigene JMX-MBean-Registrierung abschalten, da kein JMX-Monitoring
+  # genutzt wird (spart etwas Startzeit/Speicher).
+  jmx:
+    enabled: false
+  lifecycle:
+    # Zeitfenster, in dem laufende Requests beim Herunterfahren des Containers
+    # noch abgeschlossen werden duerfen (passt zum graceful shutdown unten).
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: ${PORT:8003}
+  # Laufende Requests beim Shutdown noch abschliessen lassen, statt sie hart
+  # zu kappen - wichtig fuer sauberes Signal-Handling in Kubernetes (PID 1).
+  shutdown: graceful
+  # Server laeuft hinter einem Reverse Proxy/Ingress: X-Forwarded-* Header
+  # vom Framework auswerten lassen, damit Client-IP/Schema/Host in Logs und
+  # gespiegelten Antworten korrekt ankommen.
+  forward-headers-strategy: framework
+  error:
+    # Stacktraces/Exception-Messages nie an Clients durchreichen, um keine
+    # internen Implementierungsdetails eines Mirror-/Proxy-Diensts preiszugeben.
+    include-stacktrace: never
+    include-message: never
 
 management:
   endpoints:
