@@ -43,8 +43,14 @@ RUN JAR=$(ls target/*.jar | grep -v original) && \
 RUN java -XX:ArchiveClassesAtExit=app.jsa \
          -Dspring.context.exit=onRefresh \
          -Dspring.aot.enabled=true \
+         -XX:+UseG1GC \
          -cp "extracted/dependencies/*:extracted/observability-dependencies/*:extracted/snapshot-dependencies/*:extracted/spring-boot-loader/*:extracted/application/" \
          org.springframework.boot.loader.launch.JarLauncher || [ -f app.jsa ]
+# → -XX:+UseG1GC muss zum GC der Runtime-Stage passen: dynamische CDS-Archive (ab JDK 19) können
+#   "archived heap objects" enthalten, die an den GC zur Dump-Zeit gekoppelt sind. Ohne explizite
+#   Angabe hängt der Build-Stage-Default vom verfügbaren RAM/CPU im Build-Container ab und kann
+#   vom Runtime-GC abweichen — die JVM verwirft dann den heap-object-Teil des Archivs (Warnung im
+#   Log) und der Startup-Vorteil geht teilweise verloren.
 
 # ============================
 # 2. Runtime Stage (Java 25)
@@ -101,21 +107,29 @@ EXPOSE 8003
 
 # JVM-Optionen:
 # -Djava.security.egd: Beschleunigt kryptografische Initialisierung
-# -XX:MaxRAMPercentage=50: Java nutzt max 50% des Container-RAMs
+# -XX:MaxRAMPercentage=70: Java nutzt max 70% des Container-RAMs
 # -XX:InitialRAMPercentage=30: Startet mit 30% RAM (schnellerer Startup)
 # -XX:+UseG1GC: G1 Garbage Collector für niedrige Latenz
 # -XX:MaxGCPauseMillis=200: Zielwert für GC-Pause
 # -XX:+ExplicitGCInvokesConcurrent: System.gc() läuft parallel
 # -XX:+ExitOnOutOfMemoryError: JVM beendet bei OOM (Kubernetes kann neustarten)
+# -XX:MaxMetaspaceSize: deckelt Klassenmetadaten-Speicher (sonst unbegrenzt -> Risiko für natives
+#   OOM außerhalb des Heaps). Wert bei Bedarf an das tatsächliche Container-Memory-Limit anpassen.
+# -XX:MaxDirectMemorySize: deckelt NIO-Direct-Buffers, verhindert unbemerktes Off-Heap-Wachstum.
+# -XX:-UsePerfData: kein Schreiben von /tmp/hsperfdata_*; passt zu readOnlyRootFilesystem und
+#   spart I/O
 ENTRYPOINT ["java", \
   "-XX:SharedArchiveFile=/app/app.jsa", \
   "-Dspring.aot.enabled=true", \
   "-Djava.security.egd=file:/dev/./urandom", \
-  "-XX:MaxRAMPercentage=50", \
+  "-XX:MaxRAMPercentage=70", \
   "-XX:InitialRAMPercentage=30", \
   "-XX:+UseG1GC", \
   "-XX:MaxGCPauseMillis=200", \
   "-XX:+ExplicitGCInvokesConcurrent", \
   "-XX:+ExitOnOutOfMemoryError", \
+  "-XX:MaxMetaspaceSize=128m", \
+  "-XX:MaxDirectMemorySize=64m", \
+  "-XX:-UsePerfData", \
   "-Dspring.config.location=file:/app/config/application.yml", \
   "org.springframework.boot.loader.launch.JarLauncher"]
