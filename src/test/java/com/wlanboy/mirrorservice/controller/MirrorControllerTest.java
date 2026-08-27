@@ -8,6 +8,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static com.wlanboy.mirrorservice.controller.AsyncMockMvc.perform;
 
 @WebMvcTest(MirrorController.class)
 class MirrorControllerTest {
@@ -20,14 +21,10 @@ class MirrorControllerTest {
     // ---------------------------------------------------------
     @Test
     void testMirrorGet() throws Exception {
-        var result = mockMvc.perform(get("/mirror")
+        perform(mockMvc, get("/mirror")
                 .param("statusCode", "200")
                 .param("responseBody", "GET-OK")
                 .param("waitMs", "0"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk())
                 .andExpect(content().string("GET-OK"));
     }
@@ -48,13 +45,9 @@ class MirrorControllerTest {
             }
             """;
 
-        var result = mockMvc.perform(post("/mirror")
+        perform(mockMvc, post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("X-Test", "POST"))
                 .andExpect(content().string("POST-OK"));
@@ -76,13 +69,9 @@ class MirrorControllerTest {
             }
             """;
 
-        var result = mockMvc.perform(put("/mirror")
+        perform(mockMvc, put("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isAccepted())
                 .andExpect(header().string("X-Mode", "PUT"))
                 .andExpect(content().string("PUT-OK"));
@@ -104,13 +93,9 @@ class MirrorControllerTest {
             }
             """;
 
-        var result = mockMvc.perform(delete("/mirror")
+        perform(mockMvc, delete("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isNoContent())
                 .andExpect(header().string("X-Deleted", "true"))
                 .andExpect(content().string(""));
@@ -132,13 +117,9 @@ class MirrorControllerTest {
             }
             """;
 
-        var result = mockMvc.perform(patch("/mirror")
+        perform(mockMvc, patch("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Method", "PATCH"))
                 .andExpect(content().string("PATCH-OK"));
@@ -160,13 +141,9 @@ class MirrorControllerTest {
 
         long start = System.currentTimeMillis();
 
-        var result = mockMvc.perform(post("/mirror")
+        perform(mockMvc, post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk())
                 .andExpect(content().string("DELAYED"));
 

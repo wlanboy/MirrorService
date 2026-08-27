@@ -19,6 +19,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.function.Function;
 
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -64,24 +66,20 @@ public class DnsLookupController {
             @PathVariable String hostname,
             @Schema(description = "Timeout in Millisekunden", example = "1000")
             @RequestParam(defaultValue = "1000") int timeoutMs) {
-        return Mono.fromCallable(() -> {
-            InetAddress address = dnsResolver.getByName(hostname);
-            long start = System.currentTimeMillis();
-            boolean reachable = dnsResolver.isReachable(address, timeoutMs);
-            long elapsed = System.currentTimeMillis() - start;
-            PingResult result = new PingResult(hostname, address.getHostAddress(), reachable, elapsed);
-            return reachable
-                ? ResponseEntity.ok(result)
-                : ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body(result);
-        })
-        .subscribeOn(Schedulers.boundedElastic())
-        .onErrorResume(UnknownHostException.class, e ->
-            Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new PingResult(hostname, null, false, 0)))
-        )
-        .onErrorResume(Exception.class, e ->
-            Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new PingResult(hostname, null, false, 0)))
+        return runOnBoundedElastic(
+            () -> {
+                InetAddress address = dnsResolver.getByName(hostname);
+                long start = System.currentTimeMillis();
+                boolean reachable = dnsResolver.isReachable(address, timeoutMs);
+                long elapsed = System.currentTimeMillis() - start;
+                PingResult result = new PingResult(hostname, address.getHostAddress(), reachable, elapsed);
+                return reachable
+                    ? ResponseEntity.ok(result)
+                    : ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body(result);
+            },
+            e -> e instanceof UnknownHostException
+                ? ResponseEntity.status(HttpStatus.NOT_FOUND).body(new PingResult(hostname, null, false, 0))
+                : ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new PingResult(hostname, null, false, 0))
         );
     }
 
@@ -114,30 +112,39 @@ public class DnsLookupController {
     })
     @GetMapping("/resolve/{hostname}")
     public Mono<ResponseEntity<List<String>>> resolveDns(@PathVariable String hostname) {
-        return Mono.fromCallable(() -> {
-            InetAddress[] addresses = dnsResolver.getAllByName(hostname);
-            if (addresses.length > 0) {
-                List<String> ipAddresses = Arrays.stream(addresses)
-                    .map(InetAddress::getHostAddress)
-                    .toList();
-                return ResponseEntity.ok(ipAddresses);
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(List.of("Keine IP-Adressen für Hostname '" + hostname + "' gefunden."));
+        return runOnBoundedElastic(
+            () -> {
+                InetAddress[] addresses = dnsResolver.getAllByName(hostname);
+                if (addresses.length > 0) {
+                    List<String> ipAddresses = Arrays.stream(addresses)
+                        .map(InetAddress::getHostAddress)
+                        .toList();
+                    return ResponseEntity.ok(ipAddresses);
+                } else {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(List.of("Keine IP-Adressen für Hostname '" + hostname + "' gefunden."));
+                }
+            },
+            e -> {
+                if (e instanceof UnknownHostException) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(List.of("Hostname '" + hostname + "' konnte nicht aufgelöst werden."));
+                }
+                if (e instanceof SecurityException) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(List.of("DNS-Auflösung aufgrund von Sicherheitseinschränkungen verweigert."));
+                }
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(List.of("Ein unerwarteter Fehler ist aufgetreten."));
             }
-        })
-        .subscribeOn(Schedulers.boundedElastic())
-        .onErrorResume(UnknownHostException.class, e ->
-            Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(List.of("Hostname '" + hostname + "' konnte nicht aufgelöst werden.")))
-        )
-        .onErrorResume(SecurityException.class, e ->
-            Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(List.of("DNS-Auflösung aufgrund von Sicherheitseinschränkungen verweigert.")))
-        )
-        .onErrorResume(Exception.class, e ->
-            Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(List.of("Ein unerwarteter Fehler ist aufgetreten.")))
         );
+    }
+
+    private <T> Mono<ResponseEntity<T>> runOnBoundedElastic(
+            Callable<ResponseEntity<T>> action,
+            Function<Throwable, ResponseEntity<T>> errorHandler) {
+        return Mono.fromCallable(action)
+            .subscribeOn(Schedulers.boundedElastic())
+            .onErrorResume(e -> Mono.just(errorHandler.apply(e)));
     }
 }

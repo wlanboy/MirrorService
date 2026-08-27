@@ -9,6 +9,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static com.wlanboy.mirrorservice.controller.AsyncMockMvc.perform;
 
 @WebMvcTest(MirrorController.class)
 class MirrorControllerNegTest {
@@ -22,7 +23,7 @@ class MirrorControllerNegTest {
     @Test
     void testNegativeWaitMs() throws Exception {
 
-        var result = mockMvc.perform(post("/mirror")
+        perform(mockMvc, post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -32,10 +33,6 @@ class MirrorControllerNegTest {
                       "responseHeaders": {}
                     }
                     """))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk())
                 .andExpect(content().string("OK"));
     }
@@ -53,7 +50,7 @@ class MirrorControllerNegTest {
         @Test void test500() throws Exception { testStatus(500); }
 
         private void testStatus(int code) throws Exception {
-            var result = mockMvc.perform(post("/mirror")
+            perform(mockMvc, post("/mirror")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""
                         {
@@ -63,10 +60,6 @@ class MirrorControllerNegTest {
                           "responseHeaders": {}
                         }
                         """.formatted(code)))
-                    .andExpect(request().asyncStarted())
-                    .andReturn();
-
-            mockMvc.perform(asyncDispatch(result))
                     .andExpect(status().is(code))
                     .andExpect(content().string("X"));
         }
@@ -87,16 +80,12 @@ class MirrorControllerNegTest {
     @Test
     void testGetWithComplexQueryParams() throws Exception {
 
-        var result = mockMvc.perform(get("/mirror")
+        perform(mockMvc, get("/mirror")
                 .param("statusCode", "200")
                 .param("responseBody", "OK")
                 .param("waitMs", "0")
                 .param("responseHeaders[X-Test]", "123")
                 .param("responseHeaders[X-Mode]", "GET"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Test", "123"))
                 .andExpect(header().string("X-Mode", "GET"))
@@ -163,7 +152,7 @@ class MirrorControllerNegTest {
     // ---------------------------------------------------------
     @Test
     void testStatusCodeZeroBecomesDefault() throws Exception {
-        var result = mockMvc.perform(post("/mirror")
+        perform(mockMvc, post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -173,10 +162,6 @@ class MirrorControllerNegTest {
                       "responseHeaders": {}
                     }
                     """))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk())
                 .andExpect(content().string("DEFAULT"));
     }
@@ -195,7 +180,7 @@ class MirrorControllerNegTest {
     // ---------------------------------------------------------
     @Test
     void testNullResponseBody() throws Exception {
-        var result = mockMvc.perform(post("/mirror")
+        perform(mockMvc, post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -205,10 +190,6 @@ class MirrorControllerNegTest {
                       "responseHeaders": {}
                     }
                     """))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk())
                 .andExpect(content().string(""));
     }

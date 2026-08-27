@@ -10,9 +10,9 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static com.wlanboy.mirrorservice.controller.AsyncMockMvc.perform;
 
 @WebMvcTest(DnsLookupController.class)
 class DnsLookupControllerTest {
@@ -32,11 +32,7 @@ class DnsLookupControllerTest {
         InetAddress addr = InetAddress.getByName("93.184.216.34");
         when(dnsResolver.getAllByName("example.com")).thenReturn(new InetAddress[]{addr});
 
-        var result = mockMvc.perform(get("/resolve/example.com"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
+        perform(mockMvc, get("/resolve/example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0]").value("93.184.216.34"));
@@ -48,11 +44,7 @@ class DnsLookupControllerTest {
         InetAddress addr2 = InetAddress.getByName("2606:2800:21f:cb07:6820:80da:af6b:8b2c");
         when(dnsResolver.getAllByName("example.com")).thenReturn(new InetAddress[]{addr1, addr2});
 
-        var result = mockMvc.perform(get("/resolve/example.com"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
+        perform(mockMvc, get("/resolve/example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(2));
@@ -62,11 +54,7 @@ class DnsLookupControllerTest {
     void testResolveDns_unknownHost() throws Exception {
         when(dnsResolver.getAllByName("unknown.example")).thenThrow(new UnknownHostException("unknown.example"));
 
-        var result = mockMvc.perform(get("/resolve/unknown.example"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
+        perform(mockMvc, get("/resolve/unknown.example"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$[0]").value("Hostname 'unknown.example' konnte nicht aufgelöst werden."));
     }
@@ -81,11 +69,7 @@ class DnsLookupControllerTest {
         when(dnsResolver.getByName("example.com")).thenReturn(addr);
         when(dnsResolver.isReachable(addr, 1000)).thenReturn(true);
 
-        var result = mockMvc.perform(get("/ping/example.com"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
+        perform(mockMvc, get("/ping/example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.hostname").value("example.com"))
                 .andExpect(jsonPath("$.resolvedIp").value("93.184.216.34"))
@@ -99,11 +83,7 @@ class DnsLookupControllerTest {
         when(dnsResolver.getByName("192.0.2.1")).thenReturn(addr);
         when(dnsResolver.isReachable(addr, 1000)).thenReturn(false);
 
-        var result = mockMvc.perform(get("/ping/192.0.2.1"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
+        perform(mockMvc, get("/ping/192.0.2.1"))
                 .andExpect(status().isRequestTimeout())
                 .andExpect(jsonPath("$.reachable").value(false));
     }
@@ -112,11 +92,7 @@ class DnsLookupControllerTest {
     void testPing_unknownHost() throws Exception {
         when(dnsResolver.getByName("unknown.example")).thenThrow(new UnknownHostException("unknown.example"));
 
-        var result = mockMvc.perform(get("/ping/unknown.example"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
+        perform(mockMvc, get("/ping/unknown.example"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.hostname").value("unknown.example"))
                 .andExpect(jsonPath("$.reachable").value(false));
@@ -128,11 +104,7 @@ class DnsLookupControllerTest {
         when(dnsResolver.getByName("example.com")).thenReturn(addr);
         when(dnsResolver.isReachable(addr, 2000)).thenReturn(true);
 
-        var result = mockMvc.perform(get("/ping/example.com").param("timeoutMs", "2000"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
+        perform(mockMvc, get("/ping/example.com").param("timeoutMs", "2000"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reachable").value(true));
     }
