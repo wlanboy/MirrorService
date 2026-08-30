@@ -9,6 +9,7 @@ image:
 hosts: 
   - mirror.tp.lan
   - mirror.gmk.lan
+  - mirror.localhost
 
 service:
   port: 8080
@@ -18,9 +19,18 @@ persistence:
   size: 100Mi
   storageClass: local-path
 
+ingress:
+  # istio | traefik | none
+  controller: istio
+
 istio:
   gateway: mirror-gateway
   gatewayNamespace: "istio-ingress"
+
+traefik:
+  entryPoints:
+    - web
+    - websecure
 
 serviceEntry:
   enabled: false

@@ -1,0 +1,5 @@
+ingress:
+  controller: traefik
+
+certmanager:
+  enabled: false

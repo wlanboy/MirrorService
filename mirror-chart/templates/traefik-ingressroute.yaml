@@ -1,0 +1,15 @@
+{{- if and (eq .Values.ingress.controller "traefik") (.Capabilities.APIVersions.Has "traefik.io/v1alpha1") }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ .Values.deploymentName }}-ingressroute
+spec:
+  entryPoints:
+    {{- toYaml .Values.traefik.entryPoints | nindent 4 }}
+  routes:
+    - match: {{ range $i, $h := .Values.hosts }}{{ if $i }} || {{ end }}Host(`{{ $h }}`){{ end }}
+      kind: Rule
+      services:
+        - name: {{ .Values.deploymentName }}
+          port: {{ .Values.service.port }}
+{{- end }}
