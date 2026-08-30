@@ -14,11 +14,6 @@ hosts:
 service:
   port: 8080
 
-persistence:
-  enabled: true
-  size: 100Mi
-  storageClass: local-path
-
 ingress:
   # istio | traefik | none
   controller: istio
