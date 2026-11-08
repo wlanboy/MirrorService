@@ -9,6 +9,12 @@ spring:
   # genutzt wird (spart etwas Startzeit/Speicher).
   jmx:
     enabled: false
+  # Virtual Threads (Java 21+): Jetty bedient Requests auf Virtual Threads statt auf einem
+  # festen Plattform-Thread-Pool. Blockierende Aufrufe (DNS-Lookups, isReachable, Delays)
+  # belegen keinen OS-Thread mehr -> weniger Speicher pro Request, kein Pool-Tuning noetig.
+  threads:
+    virtual:
+      enabled: true
   lifecycle:
     # Zeitfenster, in dem laufende Requests beim Herunterfahren des Containers
     # noch abgeschlossen werden duerfen (passt zum graceful shutdown unten).

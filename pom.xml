@@ -34,6 +34,28 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-jetty</artifactId>
+			<!-- Minimal-Jetty: der Service nutzt keine WebSockets. Der Starter zieht sonst den
+			     kompletten Jakarta-/Jetty-WebSocket-Stack (Server + Client, jetty-annotations,
+			     jetty-plus, CDI-API, ASM) mit. Spart JARs, Classloading und Startzeit.
+			     Spring Boot konfiguriert WebSocket-Support nur @ConditionalOnClass -> sicher. -->
+			<exclusions>
+				<exclusion>
+					<groupId>org.eclipse.jetty.ee11.websocket</groupId>
+					<artifactId>jetty-ee11-websocket-jakarta-server</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.eclipse.jetty.ee11.websocket</groupId>
+					<artifactId>jetty-ee11-websocket-jetty-server</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>jakarta.websocket</groupId>
+					<artifactId>jakarta.websocket-api</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>jakarta.websocket</groupId>
+					<artifactId>jakarta.websocket-client-api</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
