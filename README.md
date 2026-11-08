@@ -36,6 +36,7 @@ java -jar target\mirrorservice-0.3.1-SNAPSHOT.jar
 ```bash
 docker build -f Dockerfile.25 -t mirrorservice:latest .
 docker build -f Dockerfile.25Jlink -t mirrorservice:jlink .
+docker build -f Dockerfile.native -t mirrorservice:native .
 
 docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "mirrorservice"
 mirrorservice   latest    677MB
@@ -64,28 +65,29 @@ Started MirrorserviceApplication in 0.505 seconds (process running for 0.636)
 
 ## Native build
 
+Multi-stage build with GraalVM CE 25 (`native-image`) on `distroless/base-nossl`. No local GraalVM needed, takes about 2.5 minutes and ~4.5 GB RAM.
+
 ```bash
-curl -s "https://get.sdkman.io" | bash
-sdk install java 21.0.5-tem
-sdk install java 21.0.2-graalce
-export GRAALVM_HOME=~/.sdkman/candidates/java/21.0.2-graalce
-sudo apt-get install build-essential zlib1g-dev
-mvn -Pnative spring-boot:build-image
-take a coffee && do a walk && docker rm mirrorservice
-docker run --name mirrorservice -m 256M -d -p 8003:8003 -v /tmp:/tmp docker.io/library/mirrorservice:0.3.1-SNAPSHOT
+docker build -f Dockerfile.native -t mirrorservice:native .
+docker run --rm --name mirrorservice -m 256M -p 8003:8003 mirrorservice:native
+Started MirrorserviceApplication in 0.076 seconds (process running for 0.08)
 ```
+
+Image 181 MB, RSS 65 MiB after start, 70 MiB after 600 requests.
 
 ## Native publish
 
 ```bash
-docker tag docker.io/library/mirrorservice:0.3.1-SNAPSHOT wlanboy/mirrorservice:nativelatest
+docker tag mirrorservice:native wlanboy/mirrorservice:nativelatest
 docker push wlanboy/mirrorservice:nativelatest
 ```
 
 ## Native executable
 
+Requires a local GraalVM 25 (`GRAALVM_HOME`) plus `build-essential` and `zlib1g-dev`:
+
 ```bash
-mvn -Pnative native:compile
+./mvnw -Pnative native:compile
 ./target/mirrorservice
 ```
 

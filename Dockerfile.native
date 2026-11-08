@@ -1,5 +1,69 @@
-FROM scratch
-VOLUME /tmp
-ADD target/mirrorservice /mirrorservice
+# syntax=docker/dockerfile:1
+# ======================================================================
+# MirrorService – GraalVM Native Image auf Distroless
+#
+#   Spring AOT (Profil "native")  +  native-image (GraalVM CE 25)
+#   +  Mostly-static Binary (nur glibc dynamisch)  +  distroless/base-nossl
+#
+# Kein JVM, kein AOT-Cache, kein JIT: Klassen, Bean-Definitionen und der Heap-Snapshot
+# liegen fertig im Binary. Build dauert mehrere Minuten und braucht einige GB RAM.
+# ======================================================================
+
+# ============================
+# 1. Build Stage (GraalVM native-image)
+# ============================
+# UBI liefert kein native-image → GraalVM-CE-Builder (Oracle Linux 10, läuft als root).
+FROM ghcr.io/graalvm/native-image-community:25 AS build
+
+# Maven kommt über den Wrapper (.mvn/wrapper, Maven 3.9.x). Wrapper-Distribution und
+# Repository liegen beide unter /root/.m2 → im Cache-Mount.
+ARG MVN_OPTS="-q -DskipTests"
+
+# -march=compatibility        läuft auf jeder x86-64-/ARMv8-CPU (Default wäre die Build-CPU-Generation)
+# StaticExecutableWithDynamicLibC  alles außer glibc statisch gelinkt (zlib, libstdc++)
+#                             → base-nossl reicht, kein libz im Runtime-Image nötig
+ENV NATIVE_IMAGE_OPTIONS="-march=compatibility -H:+UnlockExperimentalVMOptions -H:+StaticExecutableWithDynamicLibC"
+
+WORKDIR /build
+
+COPY mvnw pom.xml ./
+COPY .mvn ./.mvn
+RUN --mount=type=cache,target=/root/.m2 ./mvnw ${MVN_OPTS} -Pnative dependency:go-offline
+
+COPY src ./src
+# Profil "native" (spring-boot-starter-parent) bindet process-aot ein,
+# native:compile forkt bis "package" und ruft danach native-image auf.
+RUN --mount=type=cache,target=/root/.m2 ./mvnw ${MVN_OPTS} -Pnative native:compile && \
+    mkdir -p /app/config /app/data && \
+    cp target/mirrorservice /app/mirrorservice
+
+# ============================
+# 2. Runtime Stage (Distroless)
+# ============================
+FROM gcr.io/distroless/base-nossl-debian13:nonroot
+
+LABEL org.opencontainers.image.title="MirrorService" \
+      org.opencontainers.image.description="Spring Framework based service mirroring requests (GraalVM native image, distroless)" \
+      org.opencontainers.image.version="0.3.1-SNAPSHOT" \
+      org.opencontainers.image.vendor="wlanboy" \
+      org.opencontainers.image.source="https://github.com/wlanboy/MirrorService" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.base.name="gcr.io/distroless/base-nossl-debian13:nonroot"
+
+WORKDIR /app
+
+USER nonroot
+
+COPY --from=build --chown=65532:0 /app/config /app/config
+COPY --from=build --chown=65532:0 /app/data /app/data
+COPY --from=build --chown=65532:65532 /app/mirrorservice /app/mirrorservice
+
+COPY --chown=65532:65532 containerconfig/application.yml /app/config/application.yml
+# → Spring-Default-Location file:./config/ (WORKDIR /app) lädt sie automatisch und
+#   überschreibt nur einzelne Keys der eingebauten application.yml.
+
 EXPOSE 8003
-ENTRYPOINT ["/mirrorservice"]
+
+# Virtual Threads: spring.threads.virtual.enabled in application.yml.
+# Heap-Grenzen bei Bedarf als Argumente anhängen, z. B. docker run ... mirrorservice:native -Xmx128m
+ENTRYPOINT ["/app/mirrorservice"]
