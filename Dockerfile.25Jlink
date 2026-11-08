@@ -1,0 +1,164 @@
+# syntax=docker/dockerfile:1
+# ======================================================================
+# MirrorService – Java 25, Custom JRE (jlink) auf Distroless
+#
+#   Spring AOT  +  Thin-JAR-Layer  +  jlink-JRE  +  JDK-25-AOT-Cache
+#   +  G1GC  +  Virtual Threads  +  distroless/base-nossl (kein Shell)
+#
+# Warum G1 statt ZGC: In JDK 25 kann der AOT-Cache mit ZGC keine Heap-Objekte
+# archivieren (kommt erst mit JEP 516 in JDK 26) → Lambdas, Proxies und der Modul-Graph
+# werden nicht gecached. Gemessen bei -m 256m: ZGC 0,79 s Start / 256 MiB RSS nach
+# 600 Requests (am Limit), G1 0,50 s / 205 MiB.
+# ======================================================================
+
+# ============================
+# 1. Build Stage (Java 25)
+# ============================
+FROM registry.access.redhat.com/ubi10/openjdk-25:latest AS build
+
+# User 185 hat HOME=/home/default → Maven-Repo explizit in den Cache-Mount legen.
+ARG MVN_OPTS="-q -DskipTests -Dmaven.repo.local=/root/.m2/repository"
+
+WORKDIR /build
+
+COPY pom.xml .
+RUN --mount=type=cache,target=/root/.m2,uid=185 mvn ${MVN_OPTS} dependency:go-offline
+
+COPY src ./src
+RUN --mount=type=cache,target=/root/.m2,uid=185 mvn ${MVN_OPTS} compile spring-boot:process-aot package
+
+# Thin-JAR-Layout (ohne --launcher): application/app.jar + */lib/*.jar
+# Nur so landen die Anwendungsklassen im AOT-Cache (System-Classloader, JAR-Dateien).
+RUN JAR=$(ls target/*.jar | grep -v original) && \
+    cp "$JAR" app.jar && \
+    java -Djarmode=tools -jar app.jar extract --layers --destination extracted
+
+# ============================
+# 2. Custom JRE (jlink)
+# ============================
+USER root
+
+# Red Hat liefert die JMODs separat. binutils (objcopy) braucht jlink für --strip-debug.
+RUN microdnf install -y java-25-openjdk-jmods binutils && \
+    microdnf clean all
+
+# Modul-Bedarf über App UND alle Libraries ermitteln (rekursiv über lib/*.jar).
+RUN jdeps \
+      --ignore-missing-deps \
+      --print-module-deps \
+      --multi-release 25 \
+      --recursive \
+      --class-path "extracted/dependencies/lib/*:extracted/observability-dependencies/lib/*:extracted/snapshot-dependencies/lib/*" \
+      extracted/application/app.jar > modules.txt && \
+    echo "jdeps: $(cat modules.txt)"
+
+# Zusätzliche Module, die jdeps nicht sieht (Reflection / ServiceLoader / Laufzeit-Features):
+#   java.management, jdk.management  → JMX-/JVM-Metriken (Micrometer), GC-Notifications
+#   jdk.zipfs                        → Ressourcen aus JARs (Swagger-UI-Webjar)
+#   jdk.charsets                     → erweiterte Zeichensätze
+#   jdk.unsupported                  → sun.misc.Unsafe (Objenesis/CGLIB, Jackson)
+#   java.security.sasl               → von java.security.jgss / java.naming referenziert
+#   jdk.naming.dns                   → DNS-Provider für JNDI (Resolve-Endpunkte, falls genutzt)
+# jdk.crypto.ec entfällt: seit JDK 22 leer, EC-Krypto steckt in java.base.
+#
+# --strip-debug           keine Debug-Infos (LineNumberTables, native Symbole)
+# --no-man-pages / --no-header-files
+# --compress zip-9        maximale Kompression der Modul-Images
+# NICHT --strip-native-commands: das entfernt auch bin/java.
+RUN jlink \
+      --module-path $JAVA_HOME/jmods \
+      --add-modules $(cat modules.txt),java.management,jdk.management,jdk.zipfs,jdk.charsets,jdk.unsupported,java.security.sasl,jdk.naming.dns \
+      --strip-debug \
+      --no-man-pages \
+      --no-header-files \
+      --compress zip-9 \
+      --output /opt/jre && \
+    /opt/jre/bin/java --list-modules
+
+# Laufzeit-Layout unter /app nachbauen (identische Pfade + mtime → AOT-Cache gültig).
+WORKDIR /app
+RUN mkdir -p config data && \
+    touch config/.keep data/.keep && \
+    for layer in dependencies observability-dependencies spring-boot-loader \
+                 snapshot-dependencies application-resources application; do \
+        cp -a /build/extracted/$layer/. /app/ ; \
+    done
+
+# AOT-Cache mit DEM JRE trainieren, das auch im Runtime-Image läuft (/opt/jre).
+# GC (G1) und UseCompactObjectHeaders müssen exakt dem ENTRYPOINT entsprechen.
+# Ein separates -Xshare:dump für das Basis-CDS-Archiv ist nicht nötig: der AOT-Cache
+# enthält JDK- und Anwendungsklassen.
+RUN /opt/jre/bin/java \
+      -XX:AOTCacheOutput=/app/app.aot \
+      -XX:+UseG1GC \
+      -XX:+UseCompactObjectHeaders \
+      -Dspring.aot.enabled=true \
+      -Dspring.context.exit=onRefresh \
+      -jar /app/app.jar
+
+# ============================
+# 3. Runtime Stage (Distroless)
+# ============================
+# Die JVM braucht nur glibc (libstdc++ ist statisch gelinkt, zlib gebündelt, TLS macht
+# Java selbst) → base-nossl reicht: kein Shell, kein Paketmanager, kein OpenSSL.
+FROM gcr.io/distroless/base-nossl-debian13:nonroot
+
+LABEL org.opencontainers.image.title="MirrorService" \
+      org.opencontainers.image.description="Spring Framework based service mirroring requests (Java 25, jlink JRE, AOT cache, distroless)" \
+      org.opencontainers.image.version="0.3.1-SNAPSHOT" \
+      org.opencontainers.image.vendor="wlanboy" \
+      org.opencontainers.image.source="https://github.com/wlanboy/MirrorService" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.base.name="gcr.io/distroless/base-nossl-debian13:nonroot"
+
+WORKDIR /app
+
+# Custom JRE (root-owned, read-only für den App-User)
+COPY --from=build /opt/jre /opt/jre
+
+USER nonroot
+
+COPY --from=build --chown=65532:0 /app/config /app/config
+COPY --from=build --chown=65532:0 /app/data /app/data
+
+# Layer-Reihenfolge gemäß layers.xml (seltenste Änderung zuerst)
+COPY --from=build --chown=65532:65532 /build/extracted/dependencies/ ./
+COPY --from=build --chown=65532:65532 /build/extracted/observability-dependencies/ ./
+COPY --from=build --chown=65532:65532 /build/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=65532:65532 /build/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=65532:65532 /build/extracted/application-resources/ ./
+COPY --from=build --chown=65532:65532 /build/extracted/application/ ./
+COPY --from=build --chown=65532:65532 /app/app.aot /app/app.aot
+
+COPY --chown=65532:65532 containerconfig/application.yml /app/config/application.yml
+# → Wird über die Spring-Default-Location file:./config/ automatisch geladen und
+#   überschreibt nur einzelne Keys der eingebauten application.yml.
+
+EXPOSE 8003
+
+# JVM-Optionen:
+# -XX:AOTCache                 AOT-Cache (Klassen vorgeladen + gelinkt, JIT-Profile)
+# -Dspring.aot.enabled         vorberechnete Bean-Definitionen
+# -XX:+UseG1GC                 explizit (sonst SerialGC bei <2 CPUs/<1792 MB) und passend zum Training
+# -XX:+UseCompactObjectHeaders (JEP 519) kleinere Objekt-Header → weniger Heap
+# -XX:MaxRAMPercentage=70      Rest für Metaspace, Code-Cache, Thread-Stacks, AOT-Cache-Mapping
+# -XX:InitialRAMPercentage=30
+# -XX:MaxMetaspaceSize=128m / -XX:MaxDirectMemorySize=64m   Off-Heap deckeln
+# -XX:+ExitOnOutOfMemoryError  bei OOM beenden → Orchestrator startet neu
+# -XX:-UsePerfData             kein /tmp/hsperfdata_*
+# -jar /app/app.jar            Thin-JAR, Classpath aus dem Manifest
+# Virtual Threads: spring.threads.virtual.enabled in application.yml.
+ENTRYPOINT [ \
+    "/opt/jre/bin/java", \
+    "-XX:AOTCache=/app/app.aot", \
+    "-Dspring.aot.enabled=true", \
+    "-XX:+UseG1GC", \
+    "-XX:+UseCompactObjectHeaders", \
+    "-XX:MaxRAMPercentage=70", \
+    "-XX:InitialRAMPercentage=30", \
+    "-XX:MaxMetaspaceSize=128m", \
+    "-XX:MaxDirectMemorySize=64m", \
+    "-XX:+ExitOnOutOfMemoryError", \
+    "-XX:-UsePerfData", \
+    "-jar", "/app/app.jar" \
+]

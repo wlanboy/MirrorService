@@ -34,24 +34,24 @@ java -jar target\mirrorservice-0.3.1-SNAPSHOT.jar
 ## Docker build
 
 ```bash
-docker build -t mirrorservice:latest . 
+docker build -f Dockerfile.25 -t mirrorservice:latest .
 docker build -f Dockerfile.25Jlink -t mirrorservice:jlink .
 
 docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "mirrorservice"
-mirrorservice   jre       479MB
-mirrorservice   jlink     236MB
+mirrorservice   latest    677MB
+mirrorservice   jlink     297MB
 ```
+
+Both variants use Spring AOT, the JDK 25 AOT cache and virtual threads. Details: [docker.md](docker.md)
 
 ## Docker run
 
 ```bash
-docker run --rm --name mirrorservice -m 256M -p 8003:8080 -v /tmp:/tmp mirrorservice:latest
-Completed initialization in 2 ms
-Started MirrorserviceApplication in 2.154 seconds (process running for 2.891)
+docker run --rm --name mirrorservice -m 256M -p 8003:8003 -v /tmp:/tmp mirrorservice:latest
+Started MirrorserviceApplication in 0.552 seconds (process running for 0.692)
 
-docker run --rm --name mirrorservice -m 256M -p 8003:8080 -v /tmp:/tmp mirrorservice:jlink
-Completed initialization in 1 ms
-Started MirrorserviceApplication in 1.184 seconds (process running for 1.401)
+docker run --rm --name mirrorservice -m 256M -p 8003:8003 -v /tmp:/tmp mirrorservice:jlink
+Started MirrorserviceApplication in 0.505 seconds (process running for 0.636)
 ```
 
 ## Docker Hub
