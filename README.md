@@ -35,7 +35,7 @@ java -jar target\mirrorservice-0.3.1-SNAPSHOT.jar
 
 ```bash
 docker build -t mirrorservice:latest . 
-docker build -f Dockerfile25Jlink -t mirrorservice:jlink .
+docker build -f Dockerfile.25Jlink -t mirrorservice:jlink .
 
 docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "mirrorservice"
 mirrorservice   jre       479MB
