@@ -2,13 +2,10 @@
 # ======================================================================
 # MirrorService – Java 25 mit JDK-AOT-Cache (Project Leyden, JEP 483/514/515)
 #
-#   Spring AOT  +  Thin-JAR-Layer  +  JDK-25-AOT-Cache  +  Virtual Threads
+#   Spring AOT  +  Thin-JAR-Layer  +  JDK-25-AOT-Cache  +  SerialGC  +  Virtual Threads
 #
-# Unterschied zu ./Dockerfile (klassisches AppCDS):
-#   Der AOT-Cache ist der Nachfolger von AppCDS. Er speichert Klassen nicht nur
-#   geparst, sondern bereits geladen + gelinkt (JEP 483) und enthält zusätzlich
-#   Methoden-Profile aus dem Trainingslauf (JEP 515), damit der JIT früher
-#   optimierten Code erzeugt.
+# Der AOT-Cache ist der Nachfolger von AppCDS: Klassen liegen geladen und gelinkt
+# vor (JEP 483), dazu kommen Methoden-Profile aus dem Trainingslauf (JEP 515).
 # ======================================================================
 
 # ============================
@@ -19,34 +16,33 @@ FROM registry.access.redhat.com/ubi10/openjdk-25:latest AS build
 # Das UBI-Image läuft als User 185 mit HOME=/home/default. Ohne explizites
 # maven.repo.local würde Maven ~/.m2 nutzen und der Cache-Mount auf /root/.m2
 # bliebe leer. uid=185 macht den Mount für den Build-User beschreibbar.
-ARG MVN_OPTS="-q -DskipTests -Dmaven.repo.local=/root/.m2/repository"
+# -Dmaven.test.skip=true statt -DskipTests: Tests werden gar nicht erst kompiliert.
+ARG MVN_OPTS="-q -Dmaven.test.skip=true -Dmaven.repo.local=/root/.m2/repository"
+
+# WORKDIR würde die Verzeichnisse root-owned anlegen → vorher als root für 185 anlegen.
+USER root
+RUN mkdir /build /app && chown 185:0 /build /app
+USER 185
 
 WORKDIR /build
 
 COPY pom.xml .
 # → Nur die pom.xml: Dependency-Layer bleibt gecached, solange sich die pom.xml nicht ändert.
-
 RUN --mount=type=cache,target=/root/.m2,uid=185 mvn ${MVN_OPTS} dependency:go-offline
 
 COPY src ./src
 # → Sourcecode zuletzt, damit Code-Änderungen das Dependency-Layer nicht invalidieren.
+# → compile ist Voraussetzung für spring-boot:process-aot (Bean-Definitionen,
+#   Proxies, Reflection-Hints vorab generieren), package baut das JAR inkl. AOT-Klassen.
+RUN --mount=type=cache,target=/root/.m2,uid=185 \
+    mvn ${MVN_OPTS} compile spring-boot:process-aot package
 
-RUN --mount=type=cache,target=/root/.m2,uid=185 mvn ${MVN_OPTS} compile spring-boot:process-aot package
-# → compile: Klassen kompilieren (Voraussetzung für process-aot)
-# → spring-boot:process-aot: Bean-Definitionen, Proxies, Reflection-Hints vorab generieren
-# → package: finales JAR inkl. AOT-Klassen
-
+# Extraktion OHNE --launcher: Thin-JAR (application/app.jar) mit Class-Path-Manifest
+# auf lib/*.jar. Nur so kommen alle Klassen über den System-Classloader aus JARs und
+# landen im AOT-Cache (beim JarLauncher-Layout nicht).
 RUN JAR=$(ls target/*.jar | grep -v original) && \
-    cp "$JAR" app.jar && \
-    java -Djarmode=tools -jar app.jar extract --layers --destination extracted
-# → Extraktion OHNE --launcher: Ergebnis ist ein Thin-JAR (application/app.jar) mit
-#   Class-Path-Manifest auf lib/*.jar. Das ist das von Spring dokumentierte Layout für
-#   CDS/AOT-Cache: alle Klassen kommen aus JARs über den System-Classloader und landen
-#   damit im Cache. (Beim JarLauncher-Layout lädt ein eigener Classloader aus
-#   Verzeichnissen – diese Klassen kann die JVM nicht archivieren.)
-# → Layer gemäß src/main/resources/layers.xml:
-#     dependencies/lib, observability-dependencies/lib, spring-boot-loader (leer),
-#     snapshot-dependencies (leer), application-resources (leer), application/app.jar
+    java -Djarmode=tools -jar "$JAR" extract --layers \
+         --application-filename app.jar --destination extracted
 
 # Laufzeit-Layout unter /app nachbauen. Der AOT-Cache prüft Pfad, Größe und mtime
 # jedes JARs – deshalb identische Pfade wie in der Runtime-Stage und cp -a (mtime bleibt).
@@ -56,18 +52,16 @@ RUN mkdir -p config data && \
     chmod -R g+w config data && \
     for layer in dependencies observability-dependencies spring-boot-loader \
                  snapshot-dependencies application-resources application; do \
-        cp -a /build/extracted/$layer/. /app/ ; \
+        [ -d /build/extracted/$layer ] && cp -a /build/extracted/$layer/. /app/ ; \
     done
 
-# AOT-Cache trainieren (JEP 514: ein Schritt – Training + Assembly).
-# - spring.context.exit=onRefresh: Context komplett aufbauen (alle Beans, Jetty,
-#   Virtual-Thread-Executor), danach sauber beenden.
-# - GC und UseCompactObjectHeaders MÜSSEN mit dem ENTRYPOINT übereinstimmen,
-#   sonst verwirft die JVM den Cache beim Start.
-# - Die JVM in build und runtime muss dieselbe Build-Nummer haben (beide :latest
-#   aus derselben UBI-Release-Welle; bei Abweichung startet die App ohne Cache).
+# AOT-Cache trainieren (JEP 514: Training + Assembly in einem Schritt).
+# - spring.context.exit=onRefresh: Context komplett aufbauen, danach sauber beenden.
+# - GC und UseCompactObjectHeaders MÜSSEN mit ENTRYPOINT und JAVA_TOOL_OPTIONS
+#   übereinstimmen, sonst verwirft die JVM den Cache still.
+# - Build- und Runtime-JVM brauchen denselben Build (beide :latest gemeinsam ziehen).
 RUN java -XX:AOTCacheOutput=/app/app.aot \
-         -XX:+UseG1GC \
+         -XX:+UseSerialGC \
          -XX:+UseCompactObjectHeaders \
          -Dspring.aot.enabled=true \
          -Dspring.context.exit=onRefresh \
@@ -102,7 +96,7 @@ COPY --from=build --chown=185:185 /build/extracted/application-resources/ ./
 COPY --from=build --chown=185:185 /build/extracted/application/ ./
 COPY --from=build --chown=185:185 /app/app.aot /app/app.aot
 
-COPY --chown=185:185 containerconfig/application.yml /app/config/application.yml
+COPY --chown=185:0 containerconfig/application.yml /app/config/application.yml
 # → Wird über die Spring-Default-Location file:./config/ (WORKDIR /app) automatisch geladen
 #   und überschreibt einzelne Keys der eingebauten application.yml. Bewusst KEIN
 #   spring.config.location: das würde die eingebaute Konfiguration komplett ersetzen.
@@ -112,12 +106,14 @@ EXPOSE 8003
 # JVM-Optionen:
 # -XX:AOTCache                 AOT-Cache aus der Build-Stage (vorgeladene + gelinkte Klassen, Profile)
 # -Dspring.aot.enabled         vorberechnete Bean-Definitionen statt Classpath-Scanning
-# -XX:+UseG1GC                 explizit, da sonst bei <2 CPUs / <1792 MB SerialGC gewählt würde
-#                              und der GC zum Trainingslauf passen muss
-# -XX:+UseCompactObjectHeaders (JEP 519) 8- statt 12-Byte-Objekt-Header → ca. 10–20 % weniger Heap
-# -XX:MaxRAMPercentage=70      Heap max. 70 % des Container-Limits (Rest: Metaspace, Code-Cache, Stacks)
-# -XX:InitialRAMPercentage=30  moderater Start-Heap
-# -XX:MaxMetaspaceSize=128m    deckelt Klassen-Metadaten (natives OOM außerhalb des Heaps vermeiden)
+# -Xms64m / -Xmx192m           fester Heap statt RAM-Prozent (unabhängig vom Container-Limit)
+# -Xss512k                     kleinere Plattform-Thread-Stacks
+# -XX:MaxMetaspaceSize=64m     reicht mit Class-Cache
+# -XX:ReservedCodeCacheSize=48m passt zu C1-only
+# -XX:TieredStopAtLevel=1      nur C1: I/O-gebundene Last, spart CPU und Code-Cache
+# -XX:+UseSerialGC             kleiner Heap; muss zum Trainingslauf passen
+# -XX:+UseCompactObjectHeaders (JEP 519) 8- statt 12-Byte-Objekt-Header
+# -XX:ActiveProcessorCount=2   = CPU-Limit, sonst dimensioniert die JVM nach Host-Kernen
 # -XX:MaxDirectMemorySize=64m  deckelt NIO-Direct-Buffers (Jetty)
 # -XX:+ExitOnOutOfMemoryError  bei OOM sofort beenden → Orchestrator startet neu
 # -XX:-UsePerfData             kein /tmp/hsperfdata_* (readOnlyRootFilesystem-tauglich)
@@ -126,11 +122,14 @@ EXPOSE 8003
 ENTRYPOINT ["java", \
   "-XX:AOTCache=/app/app.aot", \
   "-Dspring.aot.enabled=true", \
-  "-XX:+UseG1GC", \
+  "-Xms64m", "-Xmx192m", \
+  "-Xss512k", \
+  "-XX:MaxMetaspaceSize=64m", \
+  "-XX:ReservedCodeCacheSize=48m", \
+  "-XX:TieredStopAtLevel=1", \
+  "-XX:+UseSerialGC", \
   "-XX:+UseCompactObjectHeaders", \
-  "-XX:MaxRAMPercentage=70", \
-  "-XX:InitialRAMPercentage=30", \
-  "-XX:MaxMetaspaceSize=128m", \
+  "-XX:ActiveProcessorCount=2", \
   "-XX:MaxDirectMemorySize=64m", \
   "-XX:+ExitOnOutOfMemoryError", \
   "-XX:-UsePerfData", \

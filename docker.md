@@ -19,12 +19,13 @@ den JDK-25-AOT-Cache und Virtual Threads. Sie unterscheiden sich im Runtime-Imag
 | JAR-Format            | Thin-JAR + `lib/` (Layer)        | Thin-JAR + `lib/` (Layer)                 |
 | Spring AOT            | ja                               | ja                                        |
 | JDK-AOT-Cache         | ja (`app.aot`, ~80 MB)           | ja (`app.aot`, ~80 MB)                    |
-| Garbage Collector     | G1GC                             | G1GC                                      |
+| Garbage Collector     | SerialGC                         | SerialGC                                  |
+| Heap                  | `-Xms64m -Xmx192m`               | `-Xms64m -Xmx192m`                        |
 | Compact Object Headers| ja                               | ja                                        |
 | Virtual Threads       | ja                               | ja                                        |
 | User                  | 185                              | nonroot (65532)                           |
 | Image-Größe           | 677 MB                           | 297 MB                                    |
-| Start (`-m 256m`)     | 0,55 s                           | 0,51 s                                    |
+| Start (`-m 256m`)     | 0,53 s                           | 0,52 s                                    |
 
 ---
 
@@ -89,11 +90,11 @@ Spring Boot schreibt die Startzeit ins Log (`Started ... in X.XXX seconds`):
 ```bash
 docker run -d --rm --name ms-ubi   --memory 256m -p 8003:8003 mirrorservice:ubi
 docker logs -f ms-ubi 2>&1 | grep -m1 "Started MirrorserviceApplication"
-# Started MirrorserviceApplication in 0.552 seconds (process running for 0.692)
+# Started MirrorserviceApplication in 0.533 seconds
 
 docker run -d --rm --name ms-jlink --memory 256m -p 8004:8003 mirrorservice:jlink
 docker logs -f ms-jlink 2>&1 | grep -m1 "Started MirrorserviceApplication"
-# Started MirrorserviceApplication in 0.505 seconds (process running for 0.636)
+# Started MirrorserviceApplication in 0.525 seconds
 ```
 
 Zum Vergleich die alten Varianten (Fat-JAR ohne AOT bzw. jlink mit wirkungslosem AppCDS):
@@ -103,7 +104,7 @@ Prüfen, ob der AOT-Cache wirklich geladen wird:
 
 ```bash
 docker run --rm --entrypoint java mirrorservice:ubi \
-  -Xlog:aot=info -XX:AOTCache=/app/app.aot -XX:+UseG1GC -XX:+UseCompactObjectHeaders -version \
+  -Xlog:aot=info -XX:AOTCache=/app/app.aot -XX:+UseSerialGC -XX:+UseCompactObjectHeaders -version \
   | grep "Opened AOT cache"
 ```
 
@@ -114,8 +115,9 @@ mit einer Warnung ohne Cache.
 
 ## Vergleich: RAM-Bedarf
 
-`MaxRAMPercentage` und `InitialRAMPercentage` rechnen gegen das Container-Speicherlimit.
-Ohne `--memory` gilt der gesamte Host-RAM als Limit. Deshalb immer mit explizitem `--memory` starten:
+Der Heap ist fest eingestellt (`-Xms64m -Xmx192m`) und hängt nicht vom Container-Limit ab.
+Off-Heap kommen AOT-Cache (~80 MB), Metaspace (max. 64 MB), Code-Cache (max. 48 MB) und
+Direct Buffers (max. 64 MB) dazu. Messung mit `--memory 256m`:
 
 ```bash
 docker run -d --name ms-ubi   --memory 256m -p 8003:8003 mirrorservice:ubi
@@ -133,7 +135,8 @@ docker stats --no-stream ms-ubi ms-jlink \
 docker rm -f ms-ubi ms-jlink
 ```
 
-Gemessen nach 600 Requests: `ubi` ca. 211 MiB, `jlink` ca. 205 MiB (Limit 256 MiB).
+Gemessen nach 600 Requests plus 20 s `hey -c 50` (~3100 req/s): `ubi` ca. 157 MiB, `jlink` ca. 156 MiB
+(Limit 256 MiB, `memory.peak` 189 MiB). Vorher mit G1 und `MaxRAMPercentage=70`: 211 bzw. 205 MiB.
 
 ---
 
@@ -156,8 +159,14 @@ Gemessen nach 600 Requests: `ubi` ca. 211 MiB, `jlink` ca. 205 MiB (Limit 256 Mi
   `-XX:AOTCacheOutput=/app/app.aot -Dspring.context.exit=onRefresh`.
 - Der Cache prüft Pfad, Größe und mtime jedes JARs. Deshalb wird in der Build-Stage unter `/app`
   dasselbe Layout wie zur Laufzeit aufgebaut (`cp -a` erhält die mtime).
-- GC und `-XX:+UseCompactObjectHeaders` müssen in Training und `ENTRYPOINT` identisch sein.
-  G1 ist explizit gesetzt, weil die JVM bei < 2 CPUs oder < 1792 MB sonst SerialGC wählt.
+- GC und `-XX:+UseCompactObjectHeaders` müssen in Training, `ENTRYPOINT` und
+  `JAVA_TOOL_OPTIONS` identisch sein, sonst verwirft die JVM den Cache still. SerialGC ist
+  explizit gesetzt, damit die Ergonomie nicht vom Build-Container abhängt.
+- JVM-Flags: fester Heap `-Xms64m -Xmx192m`, `-Xss512k`, `MaxMetaspaceSize=64m`,
+  `ReservedCodeCacheSize=48m`, `TieredStopAtLevel=1` (nur C1, I/O-gebundene Last),
+  `ActiveProcessorCount=2`. Ca. 98 % der Klassen kommen aus dem AOT-Cache (10386/10624).
+- Build-Stage: `-Dmaven.test.skip=true` (Tests werden nicht kompiliert), `/build` und `/app`
+  gehören User 185, `extract --application-filename app.jar` statt Umkopieren.
 - `containerconfig/application.yml` liegt unter `/app/config/` und wird über die
   Spring-Default-Location `file:./config/` geladen. Es überschreibt einzelne Keys der eingebauten
   `application.yml`. `spring.config.location` wird bewusst nicht gesetzt, weil es die eingebaute
@@ -193,8 +202,8 @@ Gemessen nach 600 Requests: `ubi` ca. 211 MiB, `jlink` ca. 205 MiB (Limit 256 Mi
 - Runtime-Image `gcr.io/distroless/base-nossl-debian13:nonroot`: Die JVM braucht nur glibc
   (libstdc++ statisch gelinkt, zlib gebündelt, TLS macht Java selbst). Kein Shell, kein
   Paketmanager, kein OpenSSL.
-- G1 statt ZGC: In JDK 25 kann der AOT-Cache mit ZGC keine Heap-Objekte archivieren (kommt mit
+- Kein ZGC: In JDK 25 kann der AOT-Cache mit ZGC keine Heap-Objekte archivieren (kommt mit
   JEP 516 in JDK 26). Lambdas, Proxies und der Modul-Graph werden dann nicht gecached. Gemessen
-  bei `-m 256m`: ZGC 0,79 s Start und 256 MiB nach 600 Requests (am Limit), G1 0,50 s und 205 MiB.
+  bei `-m 256m`: ZGC 0,79 s Start und 256 MiB nach 600 Requests (am Limit).
 - Build-Zeit-Pakete `java-25-openjdk-jmods` und `binutils` (für `--strip-debug`) landen nicht im
   Runtime-Image.
