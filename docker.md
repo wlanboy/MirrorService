@@ -20,7 +20,7 @@ den JDK-25-AOT-Cache und Virtual Threads. Sie unterscheiden sich im Runtime-Imag
 | Spring AOT            | ja                               | ja                                        |
 | JDK-AOT-Cache         | ja (`app.aot`, ~80 MB)           | ja (`app.aot`, ~80 MB)                    |
 | Garbage Collector     | SerialGC                         | SerialGC                                  |
-| Heap                  | `-Xms64m -Xmx192m`               | `-Xms64m -Xmx192m`                        |
+| Heap (Default)        | `-Xms64m -Xmx192m`               | `-Xms64m -Xmx192m`                        |
 | Compact Object Headers| ja                               | ja                                        |
 | Virtual Threads       | ja                               | ja                                        |
 | User                  | 185                              | nonroot (65532)                           |
@@ -115,7 +115,8 @@ mit einer Warnung ohne Cache.
 
 ## Vergleich: RAM-Bedarf
 
-Der Heap ist fest eingestellt (`-Xms64m -Xmx192m`) und hängt nicht vom Container-Limit ab.
+Der Heap ist fest eingestellt (Default `-Xms64m -Xmx192m` aus `JAVA_TOOL_OPTIONS`) und hängt nicht
+vom Container-Limit ab.
 Off-Heap kommen AOT-Cache (~80 MB), Metaspace (max. 64 MB), Code-Cache (max. 48 MB) und
 Direct Buffers (max. 64 MB) dazu. Messung mit `--memory 256m`:
 
@@ -159,12 +160,17 @@ Gemessen nach 600 Requests plus 20 s `hey -c 50` (~3100 req/s): `ubi` ca. 157 Mi
   `-XX:AOTCacheOutput=/app/app.aot -Dspring.context.exit=onRefresh`.
 - Der Cache prüft Pfad, Größe und mtime jedes JARs. Deshalb wird in der Build-Stage unter `/app`
   dasselbe Layout wie zur Laufzeit aufgebaut (`cp -a` erhält die mtime).
-- GC und `-XX:+UseCompactObjectHeaders` müssen in Training, `ENTRYPOINT` und
-  `JAVA_TOOL_OPTIONS` identisch sein, sonst verwirft die JVM den Cache still. SerialGC ist
+- GC und `-XX:+UseCompactObjectHeaders` stehen wortgleich im Training und im `ENTRYPOINT`,
+  nie in `JAVA_TOOL_OPTIONS`. Weicht eins ab, verwirft die JVM den Cache still. SerialGC ist
   explizit gesetzt, damit die Ergonomie nicht vom Build-Container abhängt.
-- JVM-Flags: fester Heap `-Xms64m -Xmx192m`, `-Xss512k`, `MaxMetaspaceSize=64m`,
-  `ReservedCodeCacheSize=48m`, `TieredStopAtLevel=1` (nur C1, I/O-gebundene Last),
-  `ActiveProcessorCount=2`. Ca. 98 % der Klassen kommen aus dem AOT-Cache (10386/10624).
+- Der `ENTRYPOINT` enthält nur AOT-Cache, Spring AOT, GC und Header. Alles Dimensionierbare steht
+  als Default in `ENV JAVA_TOOL_OPTIONS`: fester Heap `-Xms64m -Xmx192m`, `-Xss512k`,
+  `MaxMetaspaceSize=64m`, `ReservedCodeCacheSize=48m`, `TieredStopAtLevel=1` (nur C1,
+  I/O-gebundene Last), `ActiveProcessorCount=2`, `MaxDirectMemorySize=64m`. Flags auf der
+  Kommandozeile würden `JAVA_TOOL_OPTIONS` überstimmen, deshalb stehen sie nicht im
+  `ENTRYPOINT`. Abweichende Werte setzt man über die Variable, immer mit dem vollständigen Satz:
+  `docker run -e JAVA_TOOL_OPTIONS="-Xms64m -Xmx128m …"`. Das Helm-Chart macht das über `javaOpts`.
+- Ca. 98 % der Klassen kommen aus dem AOT-Cache (10386/10624).
 - Build-Stage: `-Dmaven.test.skip=true` (Tests werden nicht kompiliert), `/build` und `/app`
   gehören User 185, `extract --application-filename app.jar` statt Umkopieren.
 - `containerconfig/application.yml` liegt unter `/app/config/` und wird über die

@@ -57,8 +57,8 @@ RUN mkdir -p config data && \
 
 # AOT-Cache trainieren (JEP 514: Training + Assembly in einem Schritt).
 # - spring.context.exit=onRefresh: Context komplett aufbauen, danach sauber beenden.
-# - GC und UseCompactObjectHeaders MÜSSEN mit ENTRYPOINT und JAVA_TOOL_OPTIONS
-#   übereinstimmen, sonst verwirft die JVM den Cache still.
+# - GC und UseCompactObjectHeaders MÜSSEN wortgleich im ENTRYPOINT stehen (nie in
+#   JAVA_TOOL_OPTIONS), sonst verwirft die JVM den Cache still.
 # - Build- und Runtime-JVM brauchen denselben Build (beide :latest gemeinsam ziehen).
 RUN java -XX:AOTCacheOutput=/app/app.aot \
          -XX:+UseSerialGC \
@@ -103,34 +103,36 @@ COPY --chown=185:0 containerconfig/application.yml /app/config/application.yml
 
 EXPOSE 8003
 
-# JVM-Optionen:
-# -XX:AOTCache                 AOT-Cache aus der Build-Stage (vorgeladene + gelinkte Klassen, Profile)
-# -Dspring.aot.enabled         vorberechnete Bean-Definitionen statt Classpath-Scanning
+# Aufteilung der JVM-Flags:
+# - ENTRYPOINT: nur, was zum AOT-Cache gehört und nie überschrieben werden darf
+#   (Cache, Spring AOT, GC, Header). GC und Header wortgleich zum Trainingslauf.
+# - ENV JAVA_TOOL_OPTIONS: alles Dimensionierbare als Default. Kommandozeilen-Flags
+#   schlagen JAVA_TOOL_OPTIONS, deshalb steht davon nichts im ENTRYPOINT. Helm (javaOpts),
+#   Manifeste und Compose ersetzen die Variable komplett, also immer den vollen Satz setzen.
+#   GC- und Header-Flags gehören nie in JAVA_TOOL_OPTIONS.
+#
+# JAVA_TOOL_OPTIONS (Default):
 # -Xms64m / -Xmx192m           fester Heap statt RAM-Prozent (unabhängig vom Container-Limit)
 # -Xss512k                     kleinere Plattform-Thread-Stacks
 # -XX:MaxMetaspaceSize=64m     reicht mit Class-Cache
 # -XX:ReservedCodeCacheSize=48m passt zu C1-only
 # -XX:TieredStopAtLevel=1      nur C1: I/O-gebundene Last, spart CPU und Code-Cache
-# -XX:+UseSerialGC             kleiner Heap; muss zum Trainingslauf passen
-# -XX:+UseCompactObjectHeaders (JEP 519) 8- statt 12-Byte-Objekt-Header
 # -XX:ActiveProcessorCount=2   = CPU-Limit, sonst dimensioniert die JVM nach Host-Kernen
 # -XX:MaxDirectMemorySize=64m  deckelt NIO-Direct-Buffers (Jetty)
 # -XX:+ExitOnOutOfMemoryError  bei OOM sofort beenden → Orchestrator startet neu
 # -XX:-UsePerfData             kein /tmp/hsperfdata_* (readOnlyRootFilesystem-tauglich)
+ENV JAVA_TOOL_OPTIONS="-Xms64m -Xmx192m -Xss512k -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=48m -XX:TieredStopAtLevel=1 -XX:ActiveProcessorCount=2 -XX:MaxDirectMemorySize=64m -XX:+ExitOnOutOfMemoryError -XX:-UsePerfData"
+
+# ENTRYPOINT:
+# -XX:AOTCache                 AOT-Cache aus der Build-Stage (vorgeladene + gelinkte Klassen, Profile)
+# -Dspring.aot.enabled         vorberechnete Bean-Definitionen statt Classpath-Scanning
+# -XX:+UseSerialGC             kleiner Heap; muss zum Trainingslauf passen
+# -XX:+UseCompactObjectHeaders (JEP 519) 8- statt 12-Byte-Objekt-Header; muss zum Trainingslauf passen
 # -jar /app/app.jar            Thin-JAR, Classpath kommt aus dem Manifest (lib/*.jar)
 # Virtual Threads werden über spring.threads.virtual.enabled in application.yml aktiviert.
 ENTRYPOINT ["java", \
   "-XX:AOTCache=/app/app.aot", \
   "-Dspring.aot.enabled=true", \
-  "-Xms64m", "-Xmx192m", \
-  "-Xss512k", \
-  "-XX:MaxMetaspaceSize=64m", \
-  "-XX:ReservedCodeCacheSize=48m", \
-  "-XX:TieredStopAtLevel=1", \
   "-XX:+UseSerialGC", \
   "-XX:+UseCompactObjectHeaders", \
-  "-XX:ActiveProcessorCount=2", \
-  "-XX:MaxDirectMemorySize=64m", \
-  "-XX:+ExitOnOutOfMemoryError", \
-  "-XX:-UsePerfData", \
   "-jar", "/app/app.jar"]

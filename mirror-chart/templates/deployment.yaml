@@ -13,24 +13,30 @@ spec:
       labels:
         app: {{ .Values.deploymentName }}
     spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Values.deploymentName }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.extraEnv }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
+            # Ersetzt den JAVA_TOOL_OPTIONS-Default aus dem Image komplett.
+            - name: JAVA_TOOL_OPTIONS
+              value: {{ .Values.javaOpts | quote }}
+          {{- with .Values.extraEnv }}
           {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
-          resources: 
-            requests: 
-              cpu: "800m" 
-              memory: "300Mi" 
-            limits: 
-              cpu: "1"
-              memory: "500Mi"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: config-volume
               mountPath: /app/config/application.properties

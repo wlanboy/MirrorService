@@ -58,7 +58,31 @@ vorgegaukelt wird – siehe Testen unten.
 | `certmanager.enabled` | cert-manager `Certificate` erzeugen und TLS am Istio-Gateway terminieren | `true` |
 | `certmanager.issuer` / `certmanager.kind` | Issuer-Referenz für das Certificate | `local-ca-issuer` / `ClusterIssuer` |
 | `certmanager.secretName` | Name des TLS-Secrets (Certificate-Output und Gateway-`credentialName`) | `mirrorapi-tls` |
+| `javaOpts` | Wert für `JAVA_TOOL_OPTIONS`, ersetzt den Default aus dem Image komplett (siehe unten) | `-Xms64m -Xmx128m … -XX:ActiveProcessorCount=1 …` |
+| `resources` | Requests und Limits des Containers | `100m`/`256Mi`, Limits `1`/`320Mi` |
+| `podSecurityContext` | SecurityContext des Pods | `runAsNonRoot`, `runAsUser: 185`, `fsGroup: 185`, `seccompProfile: RuntimeDefault` |
+| `securityContext` | SecurityContext des Containers | `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]` |
 | `extraEnv` / `extraVolumes` / `extraVolumeMounts` | Freie Erweiterungspunkte für das Deployment | `[]` |
+
+### JVM-Optionen und Ressourcen
+
+Das Image setzt im `ENTRYPOINT` nur AOT-Cache, Spring AOT, `-XX:+UseSerialGC` und
+`-XX:+UseCompactObjectHeaders`. Heap, Thread-Stacks, Metaspace, Code-Cache und
+`ActiveProcessorCount` kommen aus `JAVA_TOOL_OPTIONS`. Das Chart setzt diese Variable
+aus `javaOpts` und ersetzt damit den Default des Images vollständig. Wer `javaOpts`
+überschreibt, gibt deshalb den ganzen Satz an, nicht nur das geänderte Flag.
+
+- GC- und Header-Flags nicht in `javaOpts` aufnehmen. Ein anderer GC bricht den Start ab
+  („Multiple garbage collectors selected“), ein abweichendes Header-Flag deaktiviert den
+  AOT-Cache.
+- `-XX:ActiveProcessorCount` entspricht `resources.limits.cpu`.
+- `-Xmx` und `resources.limits.memory` gemeinsam ändern.
+- Ob der Wert greift, zeigt `-XX:+PrintFlagsFinal`, vorübergehend an `javaOpts` gehängt:
+  `MaxHeapSize` im Log muss zum gesetzten `-Xmx` passen.
+
+Der Container läuft als UID 185 (User `default` des UBI-Images) mit schreibgeschütztem
+Root-Dateisystem. `/tmp` ist ein `emptyDir`. Für das jlink-Image (`Dockerfile.25Jlink`,
+distroless `nonroot`) `podSecurityContext.runAsUser` und `fsGroup` auf `65532` setzen.
 
 Für die Wahl des Controllers stehen zwei schlanke Override-Dateien bereit,
 statt `ingress.controller` von Hand setzen zu müssen:
