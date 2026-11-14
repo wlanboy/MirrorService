@@ -15,6 +15,12 @@ spring:
   threads:
     virtual:
       enabled: true
+  # FormContentFilter liest bei PUT/PATCH/DELETE Formular-Bodies vorab ein. /echo sähe dann
+  # einen leeren Body. Der Dienst verarbeitet keine Formulare, der Filter wird nicht gebraucht.
+  mvc:
+    formcontent:
+      filter:
+        enabled: false
   lifecycle:
     # Zeitfenster, in dem laufende Requests beim Herunterfahren des Containers
     # noch abgeschlossen werden duerfen (passt zum graceful shutdown unten).

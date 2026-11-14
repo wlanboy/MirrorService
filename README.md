@@ -160,6 +160,31 @@ capability and opens a TCP connection to port 7 (echo) instead. In that case
 a TCP RST. It does not mean that any service on that host is up. If a firewall drops
 packets to port 7, the endpoint reports `reachable: false` even for a host that is running.
 
+## Call microservice for request echo
+* curl -H "Authorization: Bearer abc" "http://localhost:8003/echo/some/path?x=1"
+
+Result
+
+```json
+{"method":"GET","url":"http://localhost:8003/echo/some/path","path":"/echo/some/path","query":"x=1",
+ "remoteAddress":"127.0.0.1","peerAddress":"127.0.0.1",
+ "headers":{"Host":["localhost:8003"],"User-Agent":["curl/8.18.0"],"Accept":["*/*"],"Authorization":["Bearer ***"]},
+ "body":"","bodyBytes":0,"bodyTruncated":false}
+```
+
+`/echo` and every path below it accept GET, HEAD, POST, PUT, PATCH, DELETE and OPTIONS. The
+response shows the request as the service received it behind an ingress, Istio sidecar or proxy.
+
+* `headers` lists the headers exactly as received, including `Forwarded` and `X-Forwarded-*`.
+  The service masks the values of `Authorization` and `Proxy-Authorization` but keeps the scheme
+  (`Bearer ***`). It also masks cookie values and keeps the cookie names (`session=***`).
+* `url` and `remoteAddress` are the values after Spring evaluated the forwarded headers
+  (`server.forward-headers-strategy: framework`). If `url` still starts with `http://` behind a TLS
+  ingress, the ingress does not send `X-Forwarded-Proto`.
+* `peerAddress` is the address of the direct TCP peer, usually the ingress pod or the sidecar.
+* `body` contains at most 64 KiB of the request body. `bodyTruncated` is `true` if the body
+  was longer.
+
 ## Kubernets deployment
 
 ### Prepare
