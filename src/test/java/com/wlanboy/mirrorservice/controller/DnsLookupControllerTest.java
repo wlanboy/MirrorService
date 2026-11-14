@@ -1,6 +1,8 @@
 package com.wlanboy.mirrorservice.controller;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -9,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -107,5 +110,24 @@ class DnsLookupControllerTest {
         perform(mockMvc, get("/ping/example.com").param("timeoutMs", "2000"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reachable").value(true));
+    }
+
+    @Test
+    void testPing_maxTimeoutAccepted() throws Exception {
+        InetAddress addr = InetAddress.getByName("93.184.216.34");
+        when(dnsResolver.getByName("example.com")).thenReturn(addr);
+        when(dnsResolver.isReachable(addr, 10000)).thenReturn(true);
+
+        perform(mockMvc, get("/ping/example.com").param("timeoutMs", "10000"))
+                .andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-1", "0", "10001"})
+    void testPing_timeoutOutOfRange(String timeoutMs) throws Exception {
+        mockMvc.perform(get("/ping/example.com").param("timeoutMs", timeoutMs))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(dnsResolver);
     }
 }

@@ -14,6 +14,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -37,7 +39,11 @@ public class DnsLookupController {
 
     @Operation(
         summary = "Host anpingen",
-        description = "Prüft die Erreichbarkeit eines Hosts und gibt Antwortzeit sowie aufgelöste IP zurück."
+        description = "Prüft die Erreichbarkeit eines Hosts per InetAddress.isReachable und gibt Antwortzeit sowie aufgelöste IP zurück. "
+            + "Im Container läuft der Dienst als Nicht-root-Benutzer und hat damit kein CAP_NET_RAW. Java sendet dann kein ICMP, "
+            + "sondern baut eine TCP-Verbindung zu Port 7 (echo) auf. reachable=true heißt in diesem Fall nur, dass der Zielhost "
+            + "den Verbindungsaufbau angenommen oder mit RST abgelehnt hat. Filtert eine Firewall Port 7, meldet der Endpunkt "
+            + "auch für erreichbare Hosts reachable=false."
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Host ist erreichbar",
@@ -50,6 +56,7 @@ public class DnsLookupController {
                 @ExampleObject(name = "Timeout", value = "{\"hostname\": \"192.0.2.1\", \"resolvedIp\": \"192.0.2.1\", \"reachable\": false, \"responseTimeMs\": 1000}")
             })
         ),
+        @ApiResponse(responseCode = "400", description = "timeoutMs liegt außerhalb von 1 bis 10000", content = @Content),
         @ApiResponse(responseCode = "404", description = "Hostname konnte nicht aufgelöst werden",
             content = @Content(mediaType = "application/json", examples = {
                 @ExampleObject(name = "Unbekannter Host", value = "{\"hostname\": \"unbekannt.local\", \"resolvedIp\": null, \"reachable\": false, \"responseTimeMs\": 0}")
@@ -64,8 +71,8 @@ public class DnsLookupController {
     @GetMapping("/ping/{hostname}")
     public Mono<ResponseEntity<PingResult>> ping(
             @PathVariable String hostname,
-            @Schema(description = "Timeout in Millisekunden", example = "1000")
-            @RequestParam(defaultValue = "1000") int timeoutMs) {
+            @Schema(description = "Timeout in Millisekunden (1 bis 10000)", example = "1000", minimum = "1", maximum = "10000")
+            @RequestParam(defaultValue = "1000") @Min(1) @Max(10000) int timeoutMs) {
         return runOnBoundedElastic(
             () -> {
                 InetAddress address = dnsResolver.getByName(hostname);

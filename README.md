@@ -107,6 +107,31 @@ Result
 
 returns http status code 201 and waits for 10 ms / mirrors body and headers
 
+## Response headers and security defaults
+
+`/mirror` returns any body and any headers the caller asks for. Anyone can build a link that
+serves HTML with a script, sets a cookie or redirects to another site via `Location`. The
+service adds two headers to every mirror response unless the caller sets them in
+`responseHeaders`:
+
+* `Content-Security-Policy: sandbox` blocks scripts and forms and gives the page an opaque
+  origin, so it cannot read cookies or storage of the service's domain.
+* `X-Content-Type-Options: nosniff` stops browsers from rendering a `text/plain` body as HTML.
+
+A test that needs a different policy sets the header itself, for example
+`responseHeaders[Content-Security-Policy]=default-src 'self'`.
+
+The service drops `Set-Cookie` by default and returns `X-Mirror-Blocked-Header: Set-Cookie`
+instead. To pass cookies through, set `mirror.allow-set-cookie=true`. As an environment
+variable this is `MIRROR_ALLOW_SET_COOKIE=true`; in the Helm chart add it to `extraEnv`.
+
+`Location` stays unrestricted, so the service is an open redirect. Run it under a domain of
+its own, not as a subdomain next to other applications. The browser treats `mirror.gmk.lan`
+and `app.gmk.lan` as the same site because `.lan` is not on the Public Suffix List. A cookie
+set with `Domain=.gmk.lan` would reach every application under `gmk.lan`, and a redirect from
+the mirror to another application counts as a same-site request, so the browser sends
+`SameSite` cookies along.
+
 ## Call microservice for dns resolve
 * curl http://localhost:8003/resolve/gmk.lan
 
@@ -115,6 +140,25 @@ Result
 ```txt
 ["192.168.100.101"]
 ```
+
+## Call microservice for reachability check
+* curl "http://localhost:8003/ping/gmk.lan?timeoutMs=2000"
+
+Result
+
+```json
+{"hostname":"gmk.lan","resolvedIp":"192.168.100.101","reachable":true,"responseTimeMs":3}
+```
+
+`timeoutMs` must be between 1 and 10000 (default 1000); other values return 400.
+An unreachable host returns 408, a hostname that cannot be resolved returns 404.
+
+The check uses `InetAddress.isReachable`. Java sends an ICMP echo only if the process has
+`CAP_NET_RAW`. The container images run as a non-root user, so the JVM has no such
+capability and opens a TCP connection to port 7 (echo) instead. In that case
+`reachable: true` only means the target host accepted the connection or rejected it with
+a TCP RST. It does not mean that any service on that host is up. If a firewall drops
+packets to port 7, the endpoint reports `reachable: false` even for a host that is running.
 
 ## Kubernets deployment
 

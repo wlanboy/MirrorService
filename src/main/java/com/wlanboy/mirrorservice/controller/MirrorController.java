@@ -1,8 +1,13 @@
 package com.wlanboy.mirrorservice.controller;
 
 import java.time.Duration;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +28,21 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/mirror")
 @Tag(name = "Mirror", description = "Gibt HTTP-Antworten mit konfigurierbarem Statuscode, Headers, Body und optionaler Verzögerung zurück. Nützlich für Tests von Timeouts, Fehlerverhalten und Header-Verarbeitung.")
 public class MirrorController {
+
+    static final String CONTENT_SECURITY_POLICY = "Content-Security-Policy";
+    static final String CONTENT_TYPE_OPTIONS = "X-Content-Type-Options";
+    static final String BLOCKED_HEADER = "X-Mirror-Blocked-Header";
+
+    private static final Set<String> COOKIE_HEADERS = Set.of("set-cookie", "set-cookie2");
+
+    // Der Dienst liefert beliebigen Inhalt unter seiner eigenen Domain aus. Cookies könnten
+    // per Domain-Attribut auf Nachbar-Anwendungen (z. B. *.gmk.lan) durchschlagen, daher
+    // werden Set-Cookie-Header nur nach ausdrücklicher Freigabe weitergegeben.
+    private final boolean allowSetCookie;
+
+    public MirrorController(@Value("${mirror.allow-set-cookie:false}") boolean allowSetCookie) {
+        this.allowSetCookie = allowSetCookie;
+    }
 
     @Operation(summary = "Mirror GET/HEAD Request", description = "Spiegelt den GET/HEAD-Request basierend auf den Query-Parametern.")
     @ApiResponses(value = {
@@ -46,7 +66,7 @@ public class MirrorController {
         )
     })
     @RequestMapping(method = {RequestMethod.GET, RequestMethod.HEAD})
-    public Mono<ResponseEntity<String>> mirrorGet(@ParameterObject MirrorInstruction instruction) {
+    public Mono<ResponseEntity<String>> mirrorGet(@Valid @ParameterObject MirrorInstruction instruction) {
         return executeMirror(instruction);
     }
 
@@ -94,15 +114,38 @@ public class MirrorController {
     }
 
     private Mono<ResponseEntity<String>> executeMirror(MirrorInstruction instruction) {
-        Mono<ResponseEntity<String>> result = Mono.fromSupplier(() -> {
-            var response = ResponseEntity.status(instruction.statusCode());
-            instruction.responseHeaders().forEach(response::header);
-            return response.body(instruction.responseBody());
-        });
+        Mono<ResponseEntity<String>> result = Mono.fromSupplier(() ->
+            ResponseEntity.status(instruction.statusCode())
+                    .headers(responseHeaders(instruction.responseHeaders()))
+                    .body(instruction.responseBody()));
 
         if (instruction.waitMs() > 0) {
             return Mono.delay(Duration.ofMillis(instruction.waitMs())).then(result);
         }
         return result;
+    }
+
+    /**
+     * Übernimmt die gewünschten Header und ergänzt Schutz-Header, falls der Aufrufer sie
+     * nicht selbst setzt. {@code Content-Security-Policy: sandbox} sperrt Skripte und gibt dem
+     * Dokument einen opaken Ursprung, {@code nosniff} verhindert, dass der Browser einen
+     * text/plain-Body als HTML interpretiert.
+     */
+    private HttpHeaders responseHeaders(Map<String, String> requested) {
+        var headers = new HttpHeaders();
+        requested.forEach((name, value) -> {
+            if (!allowSetCookie && COOKIE_HEADERS.contains(name.toLowerCase(Locale.ROOT))) {
+                headers.add(BLOCKED_HEADER, name);
+            } else {
+                headers.add(name, value);
+            }
+        });
+        if (!headers.containsHeader(CONTENT_SECURITY_POLICY)) {
+            headers.set(CONTENT_SECURITY_POLICY, "sandbox");
+        }
+        if (!headers.containsHeader(CONTENT_TYPE_OPTIONS)) {
+            headers.set(CONTENT_TYPE_OPTIONS, "nosniff");
+        }
+        return headers;
     }
 }

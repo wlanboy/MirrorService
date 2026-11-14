@@ -176,6 +176,45 @@ class MirrorControllerNegTest {
     }
 
     // ---------------------------------------------------------
+    // 14b — Validierung per GET/HEAD: gleiche Grenzen wie im Body
+    // ---------------------------------------------------------
+    @Nested
+    class GetValidationTests {
+
+        @Test
+        void testGetStatusCodeTooHigh() throws Exception {
+            mockMvc.perform(get("/mirror")
+                    .param("statusCode", "1000")
+                    .param("waitMs", "0"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void testGetStatusCodeTooLow() throws Exception {
+            mockMvc.perform(get("/mirror")
+                    .param("statusCode", "99")
+                    .param("waitMs", "0"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void testGetWaitMsTooHigh() throws Exception {
+            mockMvc.perform(get("/mirror")
+                    .param("statusCode", "200")
+                    .param("waitMs", "2000000000"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void testHeadStatusCodeTooHigh() throws Exception {
+            mockMvc.perform(head("/mirror")
+                    .param("statusCode", "600")
+                    .param("waitMs", "0"))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    // ---------------------------------------------------------
     // 15 — responseBody = null
     // ---------------------------------------------------------
     @Test

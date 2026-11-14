@@ -22,7 +22,9 @@ public record MirrorInstruction(
     String responseBody,
 
     @Schema(
-        description = "Zusätzliche Response-Header als Key-Value-Paare",
+        description = "Zusätzliche Response-Header als Key-Value-Paare. Ohne eigene Angabe setzt der Dienst "
+            + "Content-Security-Policy: sandbox und X-Content-Type-Options: nosniff. Set-Cookie wird nur "
+            + "weitergegeben, wenn mirror.allow-set-cookie=true gesetzt ist.",
         additionalProperties = Schema.AdditionalPropertiesValue.USE_ADDITIONAL_PROPERTIES_ANNOTATION,
         example = "{\"X-Custom-Header\": \"Value\"}"
     )
