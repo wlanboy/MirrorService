@@ -19,7 +19,7 @@ Das Chart rendert folgende Kubernetes-Ressourcen:
 
 - **Deployment** (`templates/deployment.yaml`) – Replica(s) des Containers `wlanboy/mirrorservice`, mit Liveness- und Readiness-Probe auf `/actuator/health/{liveness,readiness}`, ConfigMap-Mount für `application.properties` und optionalen `extraEnv`/`extraVolumes`/`extraVolumeMounts`.
 - **Service** (`templates/service.yaml`) – ClusterIP-Service, leitet Traffic an die Pods weiter.
-- **ConfigMap** (`templates/configmap.yaml`) – `application.properties` für Actuator-Endpunkte, Build-Info und Tracing-Propagation.
+- **ConfigMap** (`templates/configmap.yaml`) – `application.properties` für Actuator-Endpunkte und Build-Info.
 - **Certificate** (`templates/certificate.yaml`, nur bei `certmanager.enabled: true` und vorhandener `cert-manager.io/v1`-CRD) – cert-manager `Certificate` für die konfigurierten Hosts, abgelegt im `istio.gatewayNamespace`.
 - **ServiceEntry** (`templates/serviceentry.yaml`, nur bei `serviceEntry.enabled: true`) – Istio `ServiceEntry` für externen Zugriff auf `serviceEntry.host`.
 - **Gateway** (`templates/gateway.yaml`, nur bei `ingress.controller: istio`) – Istio `Gateway` auf Port 443/HTTPS (falls `certmanager.enabled`) und 80/HTTP für die konfigurierten Hosts.

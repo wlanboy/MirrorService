@@ -26,12 +26,11 @@
             <include>*:*:*SNAPSHOT</include>
         </into>
         <!-- Observability-Stack: eigener Release-Zyklus, unabhängig von Spring-Core.
-             Micrometer (Tracing + Prometheus), OpenTelemetry (transitiv), SpringDoc/OpenAPI -->
+             Micrometer (Metriken + Prometheus), SpringDoc/OpenAPI -->
         <into layer="observability-dependencies">
             <include>io.micrometer:*</include>
             <include>io.prometheus:*</include>
             <include>org.springdoc:*</include>
-            <include>io.opentelemetry:*</include>
         </into>
         <!-- Alle stabilen Release-Bibliotheken (Spring, Jetty, Thymeleaf, Reactor …) -->
         <into layer="dependencies" />
