@@ -22,7 +22,8 @@ spec:
           {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
-            - containerPort: {{ .Values.service.port }}
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
           resources: 
             requests: 
               cpu: "800m" 
@@ -42,13 +43,13 @@ spec:
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: {{ .Values.service.port }}
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
-              port: {{ .Values.service.port }}
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 20
       volumes:

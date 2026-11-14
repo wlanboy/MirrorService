@@ -12,7 +12,10 @@ hosts:
   - mirror.localhost
 
 service:
+  # Port des Kubernetes-Service (Ziel für VirtualService/IngressRoute)
   port: 8080
+  # Port, auf dem die Anwendung im Container lauscht (server.port im Image)
+  targetPort: 8003
 
 ingress:
   # istio | traefik | none

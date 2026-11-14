@@ -47,7 +47,8 @@ vorgegaukelt wird – siehe Testen unten.
 | `image.tag` | Image-Tag | `latest` |
 | `image.pullPolicy` | Pull-Policy | `Always` |
 | `hosts` | Liste externer Hostnamen, gilt für Certificate, Gateway/VirtualService und IngressRoute | `mirror.tp.lan`, `mirror.gmk.lan`, `mirror.localhost` |
-| `service.port` | Container- und Service-Port (auch für Health-Checks) | `8080` |
+| `service.port` | Port des Kubernetes-Service, Ziel für VirtualService und IngressRoute | `8080` |
+| `service.targetPort` | Port der Anwendung im Container (`server.port` im Image), gilt für `containerPort`, Service-`targetPort` und Health-Checks | `8003` |
 | `ingress.controller` | Aktiver Ingress-Weg: `istio`, `traefik` oder `none` | `istio` |
 | `istio.gateway` | Name des Istio-Gateway-Objekts | `mirror-gateway` |
 | `istio.gatewayNamespace` | Namespace, in dem das TLS-Secret für das Istio-Gateway liegen muss | `istio-ingress` |

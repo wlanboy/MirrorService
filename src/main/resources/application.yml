@@ -35,6 +35,12 @@ server:
     include-stacktrace: never
     include-message: never
 
+mirror:
+  # Set-Cookie aus responseHeaders weitergeben. Standardmaessig aus, weil Cookies mit
+  # Domain-Attribut (z. B. Domain=.gmk.lan) sonst andere Anwendungen der Domain treffen.
+  # Per Umgebungsvariable: MIRROR_ALLOW_SET_COOKIE=true
+  allow-set-cookie: false
+
 management:
   endpoints:
     web:
