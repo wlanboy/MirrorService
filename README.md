@@ -4,7 +4,7 @@
 Spring Framework based Service which is mirroring requests with the option to delay requests and alter http response codes
 
 ## Dependencies
-At least: Java 21 and Maven 3.5
+At least: Java 25 and Maven 3.9 (or use the Maven wrapper `./mvnw`)
 
 ## Build Service Logging
 
@@ -251,6 +251,6 @@ Events:                   <none>
 ## sdk command
 
 ```bash
-sdk install java 21.0.5-tem
+sdk install java 25-tem
 sdk install maven 3.9.9
 ```
