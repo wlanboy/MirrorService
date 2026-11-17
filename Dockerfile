@@ -78,7 +78,7 @@ LABEL org.opencontainers.image.title="MirrorService" \
       org.opencontainers.image.vendor="wlanboy" \
       org.opencontainers.image.source="https://github.com/wlanboy/MirrorService" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.base.name="openjdk-25:latest"
+      org.opencontainers.image.base.name="registry.access.redhat.com/ubi10/openjdk-25-runtime:latest"
 
 WORKDIR /app
 
@@ -96,12 +96,8 @@ COPY --from=build --chown=185:185 /build/extracted/application-resources/ ./
 COPY --from=build --chown=185:185 /build/extracted/application/ ./
 COPY --from=build --chown=185:185 /app/app.aot /app/app.aot
 
-COPY --chown=185:0 containerconfig/application.yml /app/config/application.yml
-# → Wird über die Spring-Default-Location file:./config/ (WORKDIR /app) automatisch geladen
-#   und überschreibt einzelne Keys der eingebauten application.yml. Bewusst KEIN
-#   spring.config.location: das würde die eingebaute Konfiguration komplett ersetzen.
-
-EXPOSE 8003
+# 8003 = server.port (API), 8081 = management.server.port (Actuator: Probes, Prometheus)
+EXPOSE 8003 8081
 
 # Aufteilung der JVM-Flags:
 # - ENTRYPOINT: nur, was zum AOT-Cache gehört und nie überschrieben werden darf

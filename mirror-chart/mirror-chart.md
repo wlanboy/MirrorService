@@ -17,8 +17,8 @@ gesteuert über den Schalter `ingress.controller`.
 
 Das Chart rendert folgende Kubernetes-Ressourcen:
 
-- **Deployment** (`templates/deployment.yaml`) – Replica(s) des Containers `wlanboy/mirrorservice`, mit Liveness- und Readiness-Probe auf `/actuator/health/{liveness,readiness}`, ConfigMap-Mount für `application.properties` und optionalen `extraEnv`/`extraVolumes`/`extraVolumeMounts`.
-- **Service** (`templates/service.yaml`) – ClusterIP-Service, leitet Traffic an die Pods weiter.
+- **Deployment** (`templates/deployment.yaml`) – Replica(s) des Containers `wlanboy/mirrorservice`, mit Liveness- und Readiness-Probe auf `/actuator/health/{liveness,readiness}` am Management-Port, ConfigMap-Mount für `application.properties` und optionalen `extraEnv`/`extraVolumes`/`extraVolumeMounts`.
+- **Service** (`templates/service.yaml`) – ClusterIP-Service mit zwei Ports: `http` (API, Ziel für Gateway/IngressRoute) und `http-management` (Actuator, nur clusterintern für Prometheus).
 - **ConfigMap** (`templates/configmap.yaml`) – `application.properties` für Actuator-Endpunkte und Build-Info.
 - **Certificate** (`templates/certificate.yaml`, nur bei `certmanager.enabled: true` und vorhandener `cert-manager.io/v1`-CRD) – cert-manager `Certificate` für die konfigurierten Hosts, abgelegt im `istio.gatewayNamespace`.
 - **ServiceEntry** (`templates/serviceentry.yaml`, nur bei `serviceEntry.enabled: true`) – Istio `ServiceEntry` für externen Zugriff auf `serviceEntry.host`.
@@ -48,7 +48,8 @@ vorgegaukelt wird – siehe Testen unten.
 | `image.pullPolicy` | Pull-Policy | `Always` |
 | `hosts` | Liste externer Hostnamen, gilt für Certificate, Gateway/VirtualService und IngressRoute | `mirror.tp.lan`, `mirror.gmk.lan`, `mirror.localhost` |
 | `service.port` | Port des Kubernetes-Service, Ziel für VirtualService und IngressRoute | `8080` |
-| `service.targetPort` | Port der Anwendung im Container (`server.port` im Image), gilt für `containerPort`, Service-`targetPort` und Health-Checks | `8003` |
+| `service.targetPort` | Port der Anwendung im Container (`server.port` im Image), gilt für `containerPort` und Service-`targetPort` | `8003` |
+| `service.managementPort` | Actuator-Port im Container (`management.server.port` im Image), gilt für `containerPort`, Service-Port `http-management` und Health-Checks | `8081` |
 | `ingress.controller` | Aktiver Ingress-Weg: `istio`, `traefik` oder `none` | `istio` |
 | `istio.gateway` | Name des Istio-Gateway-Objekts | `mirror-gateway` |
 | `istio.gatewayNamespace` | Namespace, in dem das TLS-Secret für das Istio-Gateway liegen muss | `istio-ingress` |

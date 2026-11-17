@@ -48,12 +48,18 @@ mirror:
   allow-set-cookie: false
 
 management:
+  # Actuator auf eigenem Port, getrennt von der API (8003). Probes und Prometheus laufen
+  # nur hierüber, nach außen wird nur 8003 veröffentlicht. Muss in der eingebauten Config
+  # stehen: Spring AOT legt beim Build fest, ob ein eigener Management-Context entsteht.
+  server:
+    port: 8081
   endpoints:
     web:
       exposure:
         include: prometheus,health,info,metrics
   endpoint:
     health:
-      show-details: always
+      # Keine Details (Disk-Space, Pfade, Komponenten), nur UP/DOWN.
+      show-details: never
       probes:
         enabled: true

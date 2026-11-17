@@ -138,11 +138,8 @@ COPY --from=build --chown=65532:65532 /build/extracted/application-resources/ ./
 COPY --from=build --chown=65532:65532 /build/extracted/application/ ./
 COPY --from=build --chown=65532:65532 /app/app.aot /app/app.aot
 
-COPY --chown=65532:0 containerconfig/application.yml /app/config/application.yml
-# → Wird über die Spring-Default-Location file:./config/ automatisch geladen und
-#   überschreibt nur einzelne Keys der eingebauten application.yml.
-
-EXPOSE 8003
+# 8003 = server.port (API), 8081 = management.server.port (Actuator: Probes, Prometheus)
+EXPOSE 8003 8081
 
 # Aufteilung der JVM-Flags:
 # - ENTRYPOINT: nur, was zum AOT-Cache gehört und nie überschrieben werden darf

@@ -3,8 +3,8 @@ VOLUME /tmp
 
 WORKDIR /app
 COPY target/*.jar /app/mirrorservice.jar
-COPY containerconfig/application.yml /app/application.yml
 
-EXPOSE 8003
+# 8003 = server.port (API), 8081 = management.server.port (Actuator: Probes, Prometheus)
+EXPOSE 8003 8081
 
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app/mirrorservice.jar", "--spring.config.location=file:/app/application.yml"]
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app/mirrorservice.jar"]

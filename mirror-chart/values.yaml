@@ -16,6 +16,9 @@ service:
   port: 8080
   # Port, auf dem die Anwendung im Container lauscht (server.port im Image)
   targetPort: 8003
+  # Actuator-Port im Container (management.server.port im Image): Probes und Prometheus.
+  # Nur clusterintern, Gateway und IngressRoute routen ausschließlich auf service.port.
+  managementPort: 8081
 
 # Ersetzt JAVA_TOOL_OPTIONS aus dem Image komplett, also immer den vollständigen Satz angeben.
 # GC- und Header-Flags (SerialGC, CompactObjectHeaders) stehen im ENTRYPOINT und gehören nicht hierher.

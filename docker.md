@@ -49,7 +49,7 @@ DOCKER_BUILDKIT=1 docker build ...
 
 ## Starten
 
-Der Service lauscht im Container auf Port `8003`:
+Der Service lauscht im Container auf Port `8003` (API) und `8081` (Actuator). Den Actuator-Port nur bei Bedarf veröffentlichen, z. B. lokal mit `-p 127.0.0.1:8081:8081`:
 
 ```bash
 docker run --rm --name mirrorservice -m 256m -p 8003:8003 mirrorservice:jlink
@@ -173,8 +173,9 @@ Gemessen nach 600 Requests plus 20 s `hey -c 50` (~3100 req/s): `ubi` ca. 157 Mi
 - Ca. 98 % der Klassen kommen aus dem AOT-Cache (10386/10624).
 - Build-Stage: `-Dmaven.test.skip=true` (Tests werden nicht kompiliert), `/build` und `/app`
   gehören User 185, `extract --application-filename app.jar` statt Umkopieren.
-- `containerconfig/application.yml` liegt unter `/app/config/` und wird über die
-  Spring-Default-Location `file:./config/` geladen. Es überschreibt einzelne Keys der eingebauten
+- Das Image enthält ein leeres `/app/config/`. Eine Datei, die dort per Volume eingehängt wird
+  (z. B. `application.properties` aus der ConfigMap im Helm-Chart), lädt Spring über die
+  Default-Location `file:./config/`. Sie überschreibt einzelne Keys der eingebauten
   `application.yml`. `spring.config.location` wird bewusst nicht gesetzt, weil es die eingebaute
   Konfiguration komplett ersetzen würde (dann fehlen Port 8003, Actuator-Endpunkte und
   Graceful Shutdown).

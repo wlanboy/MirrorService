@@ -93,7 +93,9 @@ Requires a local GraalVM 25 (`GRAALVM_HOME`) plus `build-essential` and `zlib1g-
 
 ## Call microservice
 
-* curl http://localhost:8003/actuator/health
+Actuator (Health, Info, Metrics, Prometheus) läuft auf dem eigenen Management-Port `8081`, nicht auf dem API-Port `8003`:
+
+* curl http://localhost:8081/actuator/health
 
 Result
 

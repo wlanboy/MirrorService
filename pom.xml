@@ -91,6 +91,15 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
+			<!-- Tests laufen wie die App auf Jetty. Mit Tomcat im Test-Classpath legen bei eigenem
+			     management.server.port Tomcat- und Jetty-Autokonfiguration dieselbe
+			     Child-Context-Factory an und der Context startet nicht. -->
+			<exclusions>
+				<exclusion>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-starter-tomcat</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 	<build>

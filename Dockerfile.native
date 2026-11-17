@@ -58,11 +58,8 @@ COPY --from=build --chown=65532:0 /app/config /app/config
 COPY --from=build --chown=65532:0 /app/data /app/data
 COPY --from=build --chown=65532:65532 /app/mirrorservice /app/mirrorservice
 
-COPY --chown=65532:65532 containerconfig/application.yml /app/config/application.yml
-# → Spring-Default-Location file:./config/ (WORKDIR /app) lädt sie automatisch und
-#   überschreibt nur einzelne Keys der eingebauten application.yml.
-
-EXPOSE 8003
+# 8003 = server.port (API), 8081 = management.server.port (Actuator: Probes, Prometheus)
+EXPOSE 8003 8081
 
 # Virtual Threads: spring.threads.virtual.enabled in application.yml.
 # Heap-Grenzen bei Bedarf als Argumente anhängen, z. B. docker run ... mirrorservice:native -Xmx128m

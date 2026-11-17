@@ -5,7 +5,7 @@ metadata:
 data:
   application.properties: |
     # Endpoints
-    management.endpoints.web.exposure.include=prometheus,health,info,metric
-    management.endpoint.health.show-details=always
+    management.endpoints.web.exposure.include=prometheus,health,info,metrics
+    management.endpoint.health.show-details=never
     # Buildinfo
     spring.config.import=classpath:META-INF/build-info.properties

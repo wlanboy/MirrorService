@@ -1,18 +1,8 @@
-# Maven
-target/
-
-# Git
-.git/
-.gitignore
-
-# IDE
-.idea/
-.vscode/
-*.iml
-
-# Nicht benötigt im Image
-Dockerfile*
-.dockerignore
-README.md
-*.md
-screenshots/
+# Allowlist: Nur was die Dockerfiles per COPY brauchen, landet im Build-Kontext.
+# Alles andere (target/, .git/, Chart, Tekton, CI, IDE-Dateien) bleibt draußen.
+*
+!pom.xml
+!src/
+# Dockerfile.native baut mit dem Maven-Wrapper
+!mvnw
+!.mvn/

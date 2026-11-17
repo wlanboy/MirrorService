@@ -9,3 +9,7 @@ spec:
     - name: http
       port: {{ .Values.service.port }}
       targetPort: http
+    # Actuator (Prometheus-Scrape per ServiceMonitor), nicht über Gateway/IngressRoute erreichbar
+    - name: http-management
+      port: {{ .Values.service.managementPort }}
+      targetPort: management
