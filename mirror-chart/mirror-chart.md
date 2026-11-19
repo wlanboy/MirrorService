@@ -81,7 +81,7 @@ aus `javaOpts` und ersetzt damit den Default des Images vollständig. Wer `javaO
 - Ob der Wert greift, zeigt `-XX:+PrintFlagsFinal`, vorübergehend an `javaOpts` gehängt:
   `MaxHeapSize` im Log muss zum gesetzten `-Xmx` passen.
 
-Der Container läuft als UID 185 (User `default` des UBI-Images) mit schreibgeschütztem
+Der Container läuft als UID 185 (im Temurin-Image ohne passwd-Eintrag, GID 0) mit schreibgeschütztem
 Root-Dateisystem. `/tmp` ist ein `emptyDir`. Für das jlink-Image (`Dockerfile.25Jlink`,
 distroless `nonroot`) `podSecurityContext.runAsUser` und `fsGroup` auf `65532` setzen.
 

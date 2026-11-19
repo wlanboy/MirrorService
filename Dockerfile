@@ -8,34 +8,35 @@
 # vor (JEP 483), dazu kommen Methoden-Profile aus dem Trainingslauf (JEP 515).
 # ======================================================================
 
+# Temurin: JDK- und JRE-Image mit demselben Tag enthalten denselben JVM-Build
+# (Pflicht für den AOT-Cache). Alle Stages nutzen deshalb dasselbe TEMURIN_TAG.
+# Pinnen mit einem Release-Tag wie 25.0.5_8, nie zwei unabhängige Digests.
+ARG TEMURIN_TAG=25
+
 # ============================
 # 1. Build Stage (Java 25)
 # ============================
-FROM registry.access.redhat.com/ubi10/openjdk-25:latest AS build
+FROM eclipse-temurin:${TEMURIN_TAG}-jdk AS build
 
-# Das UBI-Image läuft als User 185 mit HOME=/home/default. Ohne explizites
-# maven.repo.local würde Maven ~/.m2 nutzen und der Cache-Mount auf /root/.m2
-# bliebe leer. uid=185 macht den Mount für den Build-User beschreibbar.
+# Das Temurin-JDK-Image bringt kein Maven mit → Maven-Wrapper (.mvn/wrapper, Maven 3.9.x).
+# Der Build läuft als root: Wrapper-Distribution und Repository liegen beide unter
+# /root/.m2 und damit im Cache-Mount.
 # -Dmaven.test.skip=true statt -DskipTests: Tests werden gar nicht erst kompiliert.
-ARG MVN_OPTS="-q -Dmaven.test.skip=true -Dmaven.repo.local=/root/.m2/repository"
-
-# WORKDIR würde die Verzeichnisse root-owned anlegen → vorher als root für 185 anlegen.
-USER root
-RUN mkdir /build /app && chown 185:0 /build /app
-USER 185
+ARG MVN_OPTS="-q -Dmaven.test.skip=true"
 
 WORKDIR /build
 
-COPY pom.xml .
-# → Nur die pom.xml: Dependency-Layer bleibt gecached, solange sich die pom.xml nicht ändert.
-RUN --mount=type=cache,target=/root/.m2,uid=185 mvn ${MVN_OPTS} dependency:go-offline
+COPY mvnw pom.xml ./
+COPY .mvn ./.mvn
+# → Nur pom.xml und Wrapper: Dependency-Layer bleibt gecached, solange sich die pom.xml nicht ändert.
+RUN --mount=type=cache,target=/root/.m2 ./mvnw ${MVN_OPTS} dependency:go-offline
 
 COPY src ./src
 # → Sourcecode zuletzt, damit Code-Änderungen das Dependency-Layer nicht invalidieren.
 # → compile ist Voraussetzung für spring-boot:process-aot (Bean-Definitionen,
 #   Proxies, Reflection-Hints vorab generieren), package baut das JAR inkl. AOT-Klassen.
-RUN --mount=type=cache,target=/root/.m2,uid=185 \
-    mvn ${MVN_OPTS} compile spring-boot:process-aot package
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw ${MVN_OPTS} compile spring-boot:process-aot package
 
 # Extraktion OHNE --launcher: Thin-JAR (application/app.jar) mit Class-Path-Manifest
 # auf lib/*.jar. Nur so kommen alle Klassen über den System-Classloader aus JARs und
@@ -55,11 +56,21 @@ RUN mkdir -p config data && \
         [ -d /build/extracted/$layer ] && cp -a /build/extracted/$layer/. /app/ ; \
     done
 
+# ============================
+# 2. AOT-Training (Java 25 JRE)
+# ============================
+# Das Temurin-JRE ist ein eigenes jlink-Image: Seine lib/modules unterscheidet sich vom
+# JDK. Einen im JDK trainierten Cache verwirft die JRE-JVM ("size has changed").
+# Deshalb mit genau dem Runtime-Image trainieren.
+FROM eclipse-temurin:${TEMURIN_TAG}-jre AS train
+
+# COPY erhält die mtimes aus cp -a → gleiche Pfade, Größen und mtimes wie zur Laufzeit.
+COPY --from=build /app /app
+
 # AOT-Cache trainieren (JEP 514: Training + Assembly in einem Schritt).
 # - spring.context.exit=onRefresh: Context komplett aufbauen, danach sauber beenden.
 # - GC und UseCompactObjectHeaders MÜSSEN wortgleich im ENTRYPOINT stehen (nie in
 #   JAVA_TOOL_OPTIONS), sonst verwirft die JVM den Cache still.
-# - Build- und Runtime-JVM brauchen denselben Build (beide :latest gemeinsam ziehen).
 RUN java -XX:AOTCacheOutput=/app/app.aot \
          -XX:+UseSerialGC \
          -XX:+UseCompactObjectHeaders \
@@ -68,9 +79,9 @@ RUN java -XX:AOTCacheOutput=/app/app.aot \
          -jar /app/app.jar
 
 # ============================
-# 2. Runtime Stage (Java 25)
+# 3. Runtime Stage (Java 25)
 # ============================
-FROM registry.access.redhat.com/ubi10/openjdk-25-runtime:latest
+FROM eclipse-temurin:${TEMURIN_TAG}-jre
 
 LABEL org.opencontainers.image.title="MirrorService" \
       org.opencontainers.image.description="Spring Framework based service mirroring requests (Java 25, AOT cache, virtual threads)" \
@@ -78,10 +89,12 @@ LABEL org.opencontainers.image.title="MirrorService" \
       org.opencontainers.image.vendor="wlanboy" \
       org.opencontainers.image.source="https://github.com/wlanboy/MirrorService" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.base.name="registry.access.redhat.com/ubi10/openjdk-25-runtime:latest"
+      org.opencontainers.image.base.name="docker.io/library/eclipse-temurin:25-jre"
 
 WORKDIR /app
 
+# UID 185 ohne Eintrag in /etc/passwd → GID 0 (wie zuvor im UBI-Image). Helm-Chart
+# (runAsUser: 185, fsGroup: 185) bleibt unverändert gültig.
 USER 185
 
 COPY --from=build --chown=185:0 /app/config /app/config
@@ -94,7 +107,7 @@ COPY --from=build --chown=185:185 /build/extracted/spring-boot-loader/ ./
 COPY --from=build --chown=185:185 /build/extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=185:185 /build/extracted/application-resources/ ./
 COPY --from=build --chown=185:185 /build/extracted/application/ ./
-COPY --from=build --chown=185:185 /app/app.aot /app/app.aot
+COPY --from=train --chown=185:185 /app/app.aot /app/app.aot
 
 # 8003 = server.port (API), 8081 = management.server.port (Actuator: Probes, Prometheus)
 EXPOSE 8003 8081

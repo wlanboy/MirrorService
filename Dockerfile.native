@@ -12,7 +12,7 @@
 # ============================
 # 1. Build Stage (GraalVM native-image)
 # ============================
-# UBI liefert kein native-image → GraalVM-CE-Builder (Oracle Linux 10, läuft als root).
+# Temurin liefert kein native-image → GraalVM-CE-Builder (Oracle Linux 10, läuft als root).
 FROM ghcr.io/graalvm/native-image-community:25 AS build
 
 # Maven kommt über den Wrapper (.mvn/wrapper, Maven 3.9.x). Wrapper-Distribution und

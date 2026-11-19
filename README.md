@@ -39,7 +39,7 @@ docker build -f Dockerfile.25Jlink -t mirrorservice:jlink .
 docker build -f Dockerfile.native -t mirrorservice:native .
 
 docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "mirrorservice"
-mirrorservice   latest    677MB
+mirrorservice   latest    636MB
 mirrorservice   jlink     297MB
 ```
 

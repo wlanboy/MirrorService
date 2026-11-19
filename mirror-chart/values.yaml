@@ -39,7 +39,7 @@ resources:
     cpu: "1"
     memory: 320Mi
 
-# UID 185 = User "default" aus dem UBI-Image. runAsGroup bewusst nicht gesetzt, damit
+# UID 185 = USER aus dem Dockerfile (Temurin-Image, GID 0). runAsGroup bewusst nicht gesetzt, damit
 # die GID 0 aus dem Image bleibt. Für das jlink-Image (distroless nonroot) 65532 setzen.
 podSecurityContext:
   runAsNonRoot: true

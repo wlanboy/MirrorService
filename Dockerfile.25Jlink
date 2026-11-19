@@ -13,29 +13,23 @@
 # ============================
 # 1. Build Stage (Java 25)
 # ============================
-FROM registry.access.redhat.com/ubi10/openjdk-25:latest AS build
+FROM eclipse-temurin:25-jdk AS build
 
-# User 185 hat HOME=/home/default → Maven-Repo explizit in den Cache-Mount legen.
+# Das Temurin-JDK-Image bringt kein Maven mit → Maven-Wrapper (.mvn/wrapper, Maven 3.9.x).
+# Der Build läuft als root: Wrapper-Distribution und Repository liegen unter /root/.m2
+# und damit im Cache-Mount.
 # -Dmaven.test.skip=true statt -DskipTests: Tests werden gar nicht erst kompiliert.
-ARG MVN_OPTS="-q -Dmaven.test.skip=true -Dmaven.repo.local=/root/.m2/repository"
-
-USER root
-# Red Hat liefert die JMODs separat. binutils (objcopy) braucht jlink für --strip-debug.
-# Vor dem Maven-Build: hängt nicht vom Sourcecode ab und bleibt gecached.
-RUN microdnf install -y java-25-openjdk-jmods binutils && \
-    microdnf clean all
-# WORKDIR würde die Verzeichnisse root-owned anlegen → vorher für 185 anlegen.
-RUN mkdir /build /app && chown 185:0 /build /app
-USER 185
+ARG MVN_OPTS="-q -Dmaven.test.skip=true"
 
 WORKDIR /build
 
-COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2,uid=185 mvn ${MVN_OPTS} dependency:go-offline
+COPY mvnw pom.xml ./
+COPY .mvn ./.mvn
+RUN --mount=type=cache,target=/root/.m2 ./mvnw ${MVN_OPTS} dependency:go-offline
 
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2,uid=185 \
-    mvn ${MVN_OPTS} compile spring-boot:process-aot package
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw ${MVN_OPTS} compile spring-boot:process-aot package
 
 # Thin-JAR-Layout (ohne --launcher): application/app.jar + */lib/*.jar
 # Nur so landen die Anwendungsklassen im AOT-Cache (System-Classloader, JAR-Dateien).
@@ -69,10 +63,10 @@ RUN jdeps \
 # --no-man-pages / --no-header-files
 # --compress zip-9        maximale Kompression der Modul-Images
 # NICHT --strip-native-commands: das entfernt auch bin/java.
-# /opt/jre als root anlegen (bleibt root-owned, im Runtime-Image read-only).
-USER root
+# Kein --module-path: Temurin 25 liefert keine JMODs, jlink baut aus dem linkbaren
+# Runtime-Image des JDK (JEP 493). objcopy für --strip-debug ist im Image enthalten.
+# /opt/jre bleibt root-owned und ist im Runtime-Image read-only.
 RUN jlink \
-      --module-path $JAVA_HOME/jmods \
       --add-modules $(cat modules.txt),java.management,jdk.management,jdk.zipfs,jdk.charsets,jdk.unsupported,java.security.sasl,jdk.naming.dns \
       --strip-debug \
       --no-man-pages \
@@ -80,7 +74,6 @@ RUN jlink \
       --compress zip-9 \
       --output /opt/jre && \
     /opt/jre/bin/java --list-modules
-USER 185
 
 # Laufzeit-Layout unter /app nachbauen (identische Pfade + mtime → AOT-Cache gültig).
 WORKDIR /app
