@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.wlanboy.mirrorservice.dns.DnsResolver;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -77,9 +79,9 @@ public class DnsLookupController {
             @RequestParam(defaultValue = "1000") @Min(1) @Max(10000) int timeoutMs) {
         try {
             InetAddress address = dnsResolver.getByName(hostname);
-            long start = System.currentTimeMillis();
+            long start = System.nanoTime();
             boolean reachable = dnsResolver.isReachable(address, timeoutMs);
-            long elapsed = System.currentTimeMillis() - start;
+            long elapsed = (System.nanoTime() - start) / 1_000_000;
             PingResult result = new PingResult(hostname, address.getHostAddress(), reachable, elapsed);
             return reachable
                 ? ResponseEntity.ok(result)

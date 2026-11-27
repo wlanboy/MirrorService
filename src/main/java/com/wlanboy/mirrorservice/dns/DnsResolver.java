@@ -1,4 +1,4 @@
-package com.wlanboy.mirrorservice.controller;
+package com.wlanboy.mirrorservice.dns;
 
 import java.io.IOException;
 import java.net.InetAddress;

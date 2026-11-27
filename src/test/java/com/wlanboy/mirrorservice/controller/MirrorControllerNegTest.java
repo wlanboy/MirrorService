@@ -32,8 +32,15 @@ class MirrorControllerNegTest {
                       "responseHeaders": {}
                     }
                     """))
-                .andExpect(status().isOk())
-                .andExpect(content().string("OK"));
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testNegativeWaitMsGet() throws Exception {
+        mockMvc.perform(get("/mirror")
+                .param("statusCode", "200")
+                .param("waitMs", "-5"))
+                .andExpect(status().isBadRequest());
     }
 
     // ---------------------------------------------------------

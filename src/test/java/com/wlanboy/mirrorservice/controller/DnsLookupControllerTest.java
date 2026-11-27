@@ -8,6 +8,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.wlanboy.mirrorservice.dns.DnsResolver;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 

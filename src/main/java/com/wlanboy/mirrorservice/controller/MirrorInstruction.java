@@ -32,7 +32,6 @@ public record MirrorInstruction(
 ) {
     public MirrorInstruction {
         if (statusCode == 0) statusCode = 200;
-        if (waitMs < 0) waitMs = 0;
         if (responseHeaders == null) responseHeaders = Map.of();
     }
 }

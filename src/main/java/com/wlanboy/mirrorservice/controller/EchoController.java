@@ -61,8 +61,7 @@ public class EchoController {
 
         return ResponseEntity.ok()
             .cacheControl(CacheControl.noStore())
-            .header(MirrorController.CONTENT_SECURITY_POLICY, "sandbox")
-            .header(MirrorController.CONTENT_TYPE_OPTIONS, "nosniff")
+            .headers(SecurityHeaders::applyDefaults)
             .body(echo);
     }
 

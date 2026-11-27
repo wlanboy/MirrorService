@@ -27,8 +27,6 @@ import jakarta.validation.Valid;
 @Tag(name = "Mirror", description = "Gibt HTTP-Antworten mit konfigurierbarem Statuscode, Headers, Body und optionaler Verzögerung zurück. Nützlich für Tests von Timeouts, Fehlerverhalten und Header-Verarbeitung.")
 public class MirrorController {
 
-    static final String CONTENT_SECURITY_POLICY = "Content-Security-Policy";
-    static final String CONTENT_TYPE_OPTIONS = "X-Content-Type-Options";
     static final String BLOCKED_HEADER = "X-Mirror-Blocked-Header";
 
     private static final Set<String> COOKIE_HEADERS = Set.of("set-cookie", "set-cookie2");
@@ -125,10 +123,8 @@ public class MirrorController {
     }
 
     /**
-     * Übernimmt die gewünschten Header und ergänzt Schutz-Header, falls der Aufrufer sie
-     * nicht selbst setzt. {@code Content-Security-Policy: sandbox} sperrt Skripte und gibt dem
-     * Dokument einen opaken Ursprung, {@code nosniff} verhindert, dass der Browser einen
-     * text/plain-Body als HTML interpretiert.
+     * Übernimmt die gewünschten Header und ergänzt die {@link SecurityHeaders Schutz-Header},
+     * falls der Aufrufer sie nicht selbst setzt.
      */
     private HttpHeaders responseHeaders(Map<String, String> requested) {
         var headers = new HttpHeaders();
@@ -139,12 +135,6 @@ public class MirrorController {
                 headers.add(name, value);
             }
         });
-        if (!headers.containsHeader(CONTENT_SECURITY_POLICY)) {
-            headers.set(CONTENT_SECURITY_POLICY, "sandbox");
-        }
-        if (!headers.containsHeader(CONTENT_TYPE_OPTIONS)) {
-            headers.set(CONTENT_TYPE_OPTIONS, "nosniff");
-        }
-        return headers;
+        return SecurityHeaders.applyDefaults(headers);
     }
 }
