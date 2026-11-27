@@ -9,7 +9,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static com.wlanboy.mirrorservice.controller.AsyncMockMvc.perform;
 
 @WebMvcTest(MirrorController.class)
 class MirrorControllerNegTest {
@@ -23,7 +22,7 @@ class MirrorControllerNegTest {
     @Test
     void testNegativeWaitMs() throws Exception {
 
-        perform(mockMvc, post("/mirror")
+        mockMvc.perform(post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -50,7 +49,7 @@ class MirrorControllerNegTest {
         @Test void test500() throws Exception { testStatus(500); }
 
         private void testStatus(int code) throws Exception {
-            perform(mockMvc, post("/mirror")
+            mockMvc.perform(post("/mirror")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""
                         {
@@ -80,7 +79,7 @@ class MirrorControllerNegTest {
     @Test
     void testGetWithComplexQueryParams() throws Exception {
 
-        perform(mockMvc, get("/mirror")
+        mockMvc.perform(get("/mirror")
                 .param("statusCode", "200")
                 .param("responseBody", "OK")
                 .param("waitMs", "0")
@@ -152,7 +151,7 @@ class MirrorControllerNegTest {
     // ---------------------------------------------------------
     @Test
     void testStatusCodeZeroBecomesDefault() throws Exception {
-        perform(mockMvc, post("/mirror")
+        mockMvc.perform(post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -219,7 +218,7 @@ class MirrorControllerNegTest {
     // ---------------------------------------------------------
     @Test
     void testNullResponseBody() throws Exception {
-        perform(mockMvc, post("/mirror")
+        mockMvc.perform(post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {

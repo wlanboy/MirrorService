@@ -1,6 +1,5 @@
 package com.wlanboy.mirrorservice.controller;
 
-import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -22,7 +21,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/mirror")
@@ -66,7 +64,8 @@ public class MirrorController {
         )
     })
     @RequestMapping(method = {RequestMethod.GET, RequestMethod.HEAD})
-    public Mono<ResponseEntity<String>> mirrorGet(@Valid @ParameterObject MirrorInstruction instruction) {
+    public ResponseEntity<String> mirrorGet(@Valid @ParameterObject MirrorInstruction instruction)
+            throws InterruptedException {
         return executeMirror(instruction);
     }
 
@@ -109,20 +108,20 @@ public class MirrorController {
         )
     })
     @RequestMapping(method = {RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.PATCH})
-    public Mono<ResponseEntity<String>> mirror(@Valid @RequestBody MirrorInstruction instruction) {
+    public ResponseEntity<String> mirror(@Valid @RequestBody MirrorInstruction instruction)
+            throws InterruptedException {
         return executeMirror(instruction);
     }
 
-    private Mono<ResponseEntity<String>> executeMirror(MirrorInstruction instruction) {
-        Mono<ResponseEntity<String>> result = Mono.fromSupplier(() ->
-            ResponseEntity.status(instruction.statusCode())
-                    .headers(responseHeaders(instruction.responseHeaders()))
-                    .body(instruction.responseBody()));
-
+    // Requests laufen auf virtuellen Threads (spring.threads.virtual.enabled), das Warten
+    // belegt also keinen Plattform-Thread.
+    private ResponseEntity<String> executeMirror(MirrorInstruction instruction) throws InterruptedException {
         if (instruction.waitMs() > 0) {
-            return Mono.delay(Duration.ofMillis(instruction.waitMs())).then(result);
+            Thread.sleep(instruction.waitMs());
         }
-        return result;
+        return ResponseEntity.status(instruction.statusCode())
+                .headers(responseHeaders(instruction.responseHeaders()))
+                .body(instruction.responseBody());
     }
 
     /**

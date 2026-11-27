@@ -1,11 +1,19 @@
 package com.wlanboy.mirrorservice.controller;
 
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,19 +25,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.function.Function;
-
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
-
+// DNS-Lookups und isReachable blockieren. Die Requests laufen auf virtuellen Threads
+// (spring.threads.virtual.enabled), daher wird dafür kein eigener Thread-Pool gebraucht.
 @RestController
 @Tag(name = "DNS Lookup", description = "Führt DNS-Auflösungen und Erreichbarkeitstests für Hostnamen durch.")
 public class DnsLookupController {
+
+    private static final Logger log = LoggerFactory.getLogger(DnsLookupController.class);
 
     private final DnsResolver dnsResolver;
 
@@ -69,25 +71,25 @@ public class DnsLookupController {
         )
     })
     @GetMapping("/ping/{hostname}")
-    public Mono<ResponseEntity<PingResult>> ping(
+    public ResponseEntity<PingResult> ping(
             @PathVariable String hostname,
             @Schema(description = "Timeout in Millisekunden (1 bis 10000)", example = "1000", minimum = "1", maximum = "10000")
             @RequestParam(defaultValue = "1000") @Min(1) @Max(10000) int timeoutMs) {
-        return runOnBoundedElastic(
-            () -> {
-                InetAddress address = dnsResolver.getByName(hostname);
-                long start = System.currentTimeMillis();
-                boolean reachable = dnsResolver.isReachable(address, timeoutMs);
-                long elapsed = System.currentTimeMillis() - start;
-                PingResult result = new PingResult(hostname, address.getHostAddress(), reachable, elapsed);
-                return reachable
-                    ? ResponseEntity.ok(result)
-                    : ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body(result);
-            },
-            e -> e instanceof UnknownHostException
-                ? ResponseEntity.status(HttpStatus.NOT_FOUND).body(new PingResult(hostname, null, false, 0))
-                : ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new PingResult(hostname, null, false, 0))
-        );
+        try {
+            InetAddress address = dnsResolver.getByName(hostname);
+            long start = System.currentTimeMillis();
+            boolean reachable = dnsResolver.isReachable(address, timeoutMs);
+            long elapsed = System.currentTimeMillis() - start;
+            PingResult result = new PingResult(hostname, address.getHostAddress(), reachable, elapsed);
+            return reachable
+                ? ResponseEntity.ok(result)
+                : ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body(result);
+        } catch (UnknownHostException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new PingResult(hostname, null, false, 0));
+        } catch (IOException | RuntimeException e) {
+            log.warn("Ping auf '{}' fehlgeschlagen", hostname, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new PingResult(hostname, null, false, 0));
+        }
     }
 
     @Operation(
@@ -106,11 +108,6 @@ public class DnsLookupController {
                 @ExampleObject(name = "Unbekannter Host", value = "[\"Hostname 'unbekannt.local' konnte nicht aufgelöst werden.\"]")
             })
         ),
-        @ApiResponse(responseCode = "403", description = "DNS-Auflösung wegen Sicherheitseinschränkungen verweigert",
-            content = @Content(mediaType = "application/json", examples = {
-                @ExampleObject(name = "SecurityManager", value = "[\"DNS-Auflösung aufgrund von Sicherheitseinschränkungen verweigert.\"]")
-            })
-        ),
         @ApiResponse(responseCode = "500", description = "Unerwarteter Fehler",
             content = @Content(mediaType = "application/json", examples = {
                 @ExampleObject(name = "Unbekannter Fehler", value = "[\"Ein unerwarteter Fehler ist aufgetreten.\"]")
@@ -118,40 +115,20 @@ public class DnsLookupController {
         )
     })
     @GetMapping("/resolve/{hostname}")
-    public Mono<ResponseEntity<List<String>>> resolveDns(@PathVariable String hostname) {
-        return runOnBoundedElastic(
-            () -> {
-                InetAddress[] addresses = dnsResolver.getAllByName(hostname);
-                if (addresses.length > 0) {
-                    List<String> ipAddresses = Arrays.stream(addresses)
-                        .map(InetAddress::getHostAddress)
-                        .toList();
-                    return ResponseEntity.ok(ipAddresses);
-                } else {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(List.of("Keine IP-Adressen für Hostname '" + hostname + "' gefunden."));
-                }
-            },
-            e -> {
-                if (e instanceof UnknownHostException) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(List.of("Hostname '" + hostname + "' konnte nicht aufgelöst werden."));
-                }
-                if (e instanceof SecurityException) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(List.of("DNS-Auflösung aufgrund von Sicherheitseinschränkungen verweigert."));
-                }
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(List.of("Ein unerwarteter Fehler ist aufgetreten."));
-            }
-        );
-    }
-
-    private <T> Mono<ResponseEntity<T>> runOnBoundedElastic(
-            Callable<ResponseEntity<T>> action,
-            Function<Throwable, ResponseEntity<T>> errorHandler) {
-        return Mono.fromCallable(action)
-            .subscribeOn(Schedulers.boundedElastic())
-            .onErrorResume(e -> Mono.just(errorHandler.apply(e)));
+    public ResponseEntity<List<String>> resolveDns(@PathVariable String hostname) {
+        // getAllByName liefert mindestens eine Adresse oder wirft UnknownHostException.
+        try {
+            List<String> ipAddresses = Arrays.stream(dnsResolver.getAllByName(hostname))
+                .map(InetAddress::getHostAddress)
+                .toList();
+            return ResponseEntity.ok(ipAddresses);
+        } catch (UnknownHostException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(List.of("Hostname '" + hostname + "' konnte nicht aufgelöst werden."));
+        } catch (RuntimeException e) {
+            log.warn("DNS-Auflösung für '{}' fehlgeschlagen", hostname, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(List.of("Ein unerwarteter Fehler ist aufgetreten."));
+        }
     }
 }

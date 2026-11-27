@@ -9,7 +9,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static com.wlanboy.mirrorservice.controller.AsyncMockMvc.perform;
 
 /**
  * Schutz-Header und Sperre von Set-Cookie im Standardbetrieb (mirror.allow-set-cookie=false).
@@ -22,7 +21,7 @@ class MirrorControllerHeaderTest {
 
     @Test
     void testDefaultSecurityHeaders() throws Exception {
-        perform(mockMvc, get("/mirror")
+        mockMvc.perform(get("/mirror")
                 .param("statusCode", "200")
                 .param("waitMs", "0")
                 .param("responseBody", "<script>alert(1)</script>")
@@ -35,7 +34,7 @@ class MirrorControllerHeaderTest {
 
     @Test
     void testCallerOverridesSecurityHeaders() throws Exception {
-        perform(mockMvc, post("/mirror")
+        mockMvc.perform(post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -55,7 +54,7 @@ class MirrorControllerHeaderTest {
 
     @Test
     void testSetCookieBlockedByDefault() throws Exception {
-        perform(mockMvc, post("/mirror")
+        mockMvc.perform(post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -76,7 +75,7 @@ class MirrorControllerHeaderTest {
 
     @Test
     void testSetCookieBlockedCaseInsensitive() throws Exception {
-        perform(mockMvc, get("/mirror")
+        mockMvc.perform(get("/mirror")
                 .param("statusCode", "200")
                 .param("waitMs", "0")
                 .param("responseHeaders[set-cookie]", "a=b"))

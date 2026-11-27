@@ -7,7 +7,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static com.wlanboy.mirrorservice.controller.AsyncMockMvc.perform;
 
 @WebMvcTest(controllers = MirrorController.class, properties = "mirror.allow-set-cookie=true")
 class MirrorControllerSetCookieOptInTest {
@@ -17,7 +16,7 @@ class MirrorControllerSetCookieOptInTest {
 
     @Test
     void testSetCookiePassedThroughWhenAllowed() throws Exception {
-        perform(mockMvc, get("/mirror")
+        mockMvc.perform(get("/mirror")
                 .param("statusCode", "200")
                 .param("waitMs", "0")
                 .param("responseHeaders[Set-Cookie]", "session=test"))

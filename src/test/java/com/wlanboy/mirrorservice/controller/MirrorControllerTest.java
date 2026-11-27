@@ -8,7 +8,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static com.wlanboy.mirrorservice.controller.AsyncMockMvc.perform;
 
 @WebMvcTest(MirrorController.class)
 class MirrorControllerTest {
@@ -21,7 +20,7 @@ class MirrorControllerTest {
     // ---------------------------------------------------------
     @Test
     void testMirrorGet() throws Exception {
-        perform(mockMvc, get("/mirror")
+        mockMvc.perform(get("/mirror")
                 .param("statusCode", "200")
                 .param("responseBody", "GET-OK")
                 .param("waitMs", "0"))
@@ -45,7 +44,7 @@ class MirrorControllerTest {
             }
             """;
 
-        perform(mockMvc, post("/mirror")
+        mockMvc.perform(post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
                 .andExpect(status().isCreated())
@@ -69,7 +68,7 @@ class MirrorControllerTest {
             }
             """;
 
-        perform(mockMvc, put("/mirror")
+        mockMvc.perform(put("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
                 .andExpect(status().isAccepted())
@@ -93,7 +92,7 @@ class MirrorControllerTest {
             }
             """;
 
-        perform(mockMvc, delete("/mirror")
+        mockMvc.perform(delete("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
                 .andExpect(status().isNoContent())
@@ -117,7 +116,7 @@ class MirrorControllerTest {
             }
             """;
 
-        perform(mockMvc, patch("/mirror")
+        mockMvc.perform(patch("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
                 .andExpect(status().isOk())
@@ -141,7 +140,7 @@ class MirrorControllerTest {
 
         long start = System.currentTimeMillis();
 
-        perform(mockMvc, post("/mirror")
+        mockMvc.perform(post("/mirror")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
                 .andExpect(status().isOk())
