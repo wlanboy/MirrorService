@@ -82,9 +82,10 @@ class EchoControllerTest {
     @Test
     void testEchoShowsForwardedHeadersAndPeerAddress() throws Exception {
         // Wie in Produktion mit forward-headers-strategy=framework: der Filter wertet
-        // X-Forwarded-* aus und blendet die Header danach aus dem Request aus.
+        // X-Forwarded-* aus (false = nicht den Standard-Header "Forwarded") und blendet
+        // die Header danach aus dem Request aus.
         var forwarded = MockMvcBuilders.standaloneSetup(new EchoController())
-                .addFilters(new ForwardedHeaderFilter())
+                .addFilters(new ForwardedHeaderFilter(false))
                 .build();
 
         forwarded.perform(get("/echo/app")
