@@ -40,12 +40,17 @@ public class MirrorController {
         this.allowSetCookie = allowSetCookie;
     }
 
-    @Operation(summary = "Mirror GET/HEAD Request", description = "Spiegelt den GET/HEAD-Request basierend auf den Query-Parametern.")
+    @Operation(operationId = "mirror", summary = "Mirror GET/HEAD Request", description = "Spiegelt den GET/HEAD-Request basierend auf den Query-Parametern.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Erfolgreiche Antwort mit konfiguriertem Body",
             content = @Content(mediaType = "text/plain", examples = {
                 @ExampleObject(name = "Einfache Antwort", value = "OK"),
                 @ExampleObject(name = "JSON-Body", value = "{\"status\": \"healthy\"}")
+            })
+        ),
+        @ApiResponse(responseCode = "400", description = "Ungültige Query-Parameter: statusCode außerhalb von 100 bis 599 oder waitMs außerhalb von 0 bis 60000. Ein per statusCode=400 angeforderter Fehler kommt dagegen als text/plain mit dem konfigurierten Body.",
+            content = @Content(mediaType = "application/json", examples = {
+                @ExampleObject(name = "Validierungsfehler", value = "{\"timestamp\": \"2026-01-01T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"path\": \"/mirror\"}")
             })
         ),
         @ApiResponse(responseCode = "4XX", description = "Konfigurierter Client-Fehler",
@@ -68,6 +73,7 @@ public class MirrorController {
     }
 
     @Operation(
+        operationId = "mirror",
         summary = "Mirror Request",
         description = "Spiegelt den Request basierend auf den Instruktionen im JSON-Body.",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -90,6 +96,11 @@ public class MirrorController {
             content = @Content(mediaType = "text/plain", examples = {
                 @ExampleObject(name = "Einfache Antwort", value = "OK"),
                 @ExampleObject(name = "JSON-Body", value = "{\"result\": \"ok\"}")
+            })
+        ),
+        @ApiResponse(responseCode = "400", description = "Ungültige Instruktion: kein gültiges JSON, statusCode außerhalb von 100 bis 599 oder waitMs außerhalb von 0 bis 60000. Ein per statusCode=400 angeforderter Fehler kommt dagegen als text/plain mit dem konfigurierten Body.",
+            content = @Content(mediaType = "application/json", examples = {
+                @ExampleObject(name = "Validierungsfehler", value = "{\"timestamp\": \"2026-01-01T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"path\": \"/mirror\"}")
             })
         ),
         @ApiResponse(responseCode = "4XX", description = "Konfigurierter Client-Fehler",

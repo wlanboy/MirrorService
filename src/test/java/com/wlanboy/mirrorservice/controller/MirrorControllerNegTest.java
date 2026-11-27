@@ -173,12 +173,24 @@ class MirrorControllerNegTest {
     }
 
     // ---------------------------------------------------------
-    // 14 — GET ohne Parameter → Validierungsfehler
+    // 13b — fehlende statusCode/waitMs → Defaults statt 400
+    // ---------------------------------------------------------
+    @Test
+    void testPostWithoutStatusAndWait() throws Exception {
+        mockMvc.perform(post("/mirror")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"responseBody\": \"DEFAULT\"}"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("DEFAULT"));
+    }
+
+    // ---------------------------------------------------------
+    // 14 — GET ohne Parameter → Defaults (200, keine Wartezeit)
     // ---------------------------------------------------------
     @Test
     void testGetWithoutParams() throws Exception {
         mockMvc.perform(get("/mirror"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk());
     }
 
     // ---------------------------------------------------------

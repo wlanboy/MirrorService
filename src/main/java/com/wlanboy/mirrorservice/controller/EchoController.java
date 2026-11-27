@@ -19,6 +19,10 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
@@ -35,7 +39,19 @@ public class EchoController {
         Gibt Methode, URL, Pfad, Query, Header, Client- und Peer-Adresse sowie den Body als JSON zurück. \
         Die Header stammen aus dem unveränderten Request, Forwarded und X-Forwarded-* sind also enthalten. \
         Werte von Authorization, Proxy-Authorization und Cookie werden maskiert. \
-        Bodies über 64 KiB werden abgeschnitten.""")
+        Bodies über 64 KiB werden abgeschnitten.""",
+        // Der Body wird roh aus dem Request gelesen, springdoc erkennt ihn deshalb nicht selbst.
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = false,
+            description = "Beliebiger Body, er wird unverändert als Text zurückgegeben.",
+            content = {
+                @Content(mediaType = "application/json", schema = @Schema(type = "object"),
+                    examples = @ExampleObject(value = "{\"hello\": \"world\"}")),
+                @Content(mediaType = "text/plain", schema = @Schema(type = "string"),
+                    examples = @ExampleObject(value = "hello world"))
+            }))
+    @ApiResponse(responseCode = "200", description = "Request, wie er beim Dienst angekommen ist",
+        content = @Content(mediaType = "application/json", schema = @Schema(implementation = EchoResponse.class)))
     @RequestMapping(path = "/echo/**", method = {RequestMethod.GET, RequestMethod.HEAD, RequestMethod.POST,
             RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.DELETE, RequestMethod.OPTIONS})
     public ResponseEntity<EchoResponse> echo(HttpServletRequest request) throws IOException {

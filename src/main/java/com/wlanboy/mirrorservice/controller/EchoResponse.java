@@ -28,10 +28,10 @@ public record EchoResponse(
     @Schema(description = "Header, wie sie empfangen wurden, inklusive Forwarded/X-Forwarded-*. Werte von Authorization, Proxy-Authorization und Cookie sind maskiert.")
     Map<String, List<String>> headers,
 
-    @Schema(description = "Body als Text, höchstens 64 KiB", example = "{\"hello\": \"world\"}")
+    @Schema(description = "Body als Text, höchstens 64 KiB", example = "hello world")
     String body,
 
-    @Schema(description = "Anzahl der zurückgegebenen Body-Bytes", example = "18")
+    @Schema(description = "Anzahl der zurückgegebenen Body-Bytes", example = "11")
     int bodyBytes,
 
     @Schema(description = "true, wenn der Body länger als 64 KiB war und abgeschnitten wurde", example = "false")

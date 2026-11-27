@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.wlanboy.mirrorservice.dns.DnsResolver;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -51,30 +53,34 @@ public class DnsLookupController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Host ist erreichbar",
-            content = @Content(mediaType = "application/json", examples = {
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = PingResult.class), examples = {
                 @ExampleObject(name = "Erreichbar", value = "{\"hostname\": \"google.com\", \"resolvedIp\": \"142.250.185.46\", \"reachable\": true, \"responseTimeMs\": 12}")
             })
         ),
         @ApiResponse(responseCode = "408", description = "Host nicht erreichbar (Timeout)",
-            content = @Content(mediaType = "application/json", examples = {
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = PingResult.class), examples = {
                 @ExampleObject(name = "Timeout", value = "{\"hostname\": \"192.0.2.1\", \"resolvedIp\": \"192.0.2.1\", \"reachable\": false, \"responseTimeMs\": 1000}")
             })
         ),
-        @ApiResponse(responseCode = "400", description = "timeoutMs liegt außerhalb von 1 bis 10000", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Hostname konnte nicht aufgelöst werden",
+        @ApiResponse(responseCode = "400", description = "timeoutMs liegt außerhalb von 1 bis 10000",
             content = @Content(mediaType = "application/json", examples = {
+                @ExampleObject(name = "Ungültiger Timeout", value = "{\"timestamp\": \"2026-01-01T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"path\": \"/ping/example.com\"}")
+            })
+        ),
+        @ApiResponse(responseCode = "404", description = "Hostname konnte nicht aufgelöst werden",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = PingResult.class), examples = {
                 @ExampleObject(name = "Unbekannter Host", value = "{\"hostname\": \"unbekannt.local\", \"resolvedIp\": null, \"reachable\": false, \"responseTimeMs\": 0}")
             })
         ),
         @ApiResponse(responseCode = "500", description = "Unerwarteter Fehler",
-            content = @Content(mediaType = "application/json", examples = {
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = PingResult.class), examples = {
                 @ExampleObject(name = "Fehler", value = "{\"hostname\": \"example.com\", \"resolvedIp\": null, \"reachable\": false, \"responseTimeMs\": 0}")
             })
         )
     })
     @GetMapping("/ping/{hostname}")
     public ResponseEntity<PingResult> ping(
-            @PathVariable String hostname,
+            @Parameter(description = "Hostname oder IP-Adresse", example = "example.com") @PathVariable String hostname,
             @Schema(description = "Timeout in Millisekunden (1 bis 10000)", example = "1000", minimum = "1", maximum = "10000")
             @RequestParam(defaultValue = "1000") @Min(1) @Max(10000) int timeoutMs) {
         try {
@@ -100,24 +106,24 @@ public class DnsLookupController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "DNS-Auflösung erfolgreich",
-            content = @Content(mediaType = "application/json", examples = {
+            content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(type = "string")), examples = {
                 @ExampleObject(name = "IPv4", summary = "Einzelne IPv4-Adresse", value = "[\"93.184.216.34\"]"),
                 @ExampleObject(name = "IPv4 + IPv6", summary = "Mehrere Adressen", value = "[\"93.184.216.34\", \"2606:2800:21f:cb07:6820:80da:af6b:8b2c\"]")
             })
         ),
         @ApiResponse(responseCode = "404", description = "Hostname konnte nicht aufgelöst werden",
-            content = @Content(mediaType = "application/json", examples = {
+            content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(type = "string")), examples = {
                 @ExampleObject(name = "Unbekannter Host", value = "[\"Hostname 'unbekannt.local' konnte nicht aufgelöst werden.\"]")
             })
         ),
         @ApiResponse(responseCode = "500", description = "Unerwarteter Fehler",
-            content = @Content(mediaType = "application/json", examples = {
+            content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(type = "string")), examples = {
                 @ExampleObject(name = "Unbekannter Fehler", value = "[\"Ein unerwarteter Fehler ist aufgetreten.\"]")
             })
         )
     })
     @GetMapping("/resolve/{hostname}")
-    public ResponseEntity<List<String>> resolveDns(@PathVariable String hostname) {
+    public ResponseEntity<List<String>> resolveDns(@Parameter(description = "Hostname oder IP-Adresse", example = "example.com") @PathVariable String hostname) {
         // getAllByName liefert mindestens eine Adresse oder wirft UnknownHostException.
         try {
             List<String> ipAddresses = Arrays.stream(dnsResolver.getAllByName(hostname))
