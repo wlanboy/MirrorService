@@ -1,7 +1,9 @@
 [![Java CI with Maven](https://github.com/wlanboy/MirrorService/actions/workflows/maven.yml/badge.svg)](https://github.com/wlanboy/MirrorService/actions/workflows/maven.yml) ![Docker build and publish image](https://github.com/wlanboy/MirrorService/workflows/Docker%20build%20and%20publish%20image/badge.svg)
 
 # MirrorService
-Spring Framework based Service which is mirroring requests with the option to delay requests and alter http response codes
+MirrorService is a Spring Boot 4 service on Java 25 that mirrors HTTP requests and can delay them and change the response status code. Further endpoints resolve DNS names, check whether a host is reachable and echo the incoming request.
+
+The container images use Spring AOT, the JDK 25 AOT cache and virtual threads; a GraalVM native image is also available ([docker.md](docker.md)). For Kubernetes there is a Helm chart ([mirror-chart/mirror-chart.md](mirror-chart/mirror-chart.md)), and a Tekton pipeline builds and pushes the image ([tekton/tekton-pipeline.md](tekton/tekton-pipeline.md)).
 
 ## Dependencies
 At least: Java 25 and Maven 3.9 (or use the Maven wrapper `./mvnw`)
